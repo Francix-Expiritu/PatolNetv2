@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import GISMapping from "./GISmapping";
 import "./Announcements.css";
+import { BASE_URL } from '../config';
 
 export default function AnnouncementPage() {
   const [announcements, setAnnouncements] = useState([]);
@@ -8,7 +9,7 @@ export default function AnnouncementPage() {
   useEffect(() => {
     const fetchAnnouncements = async () => {
       try {
-        const response = await fetch("http://10.170.82.215:3001/api/announcements");
+        const response = await fetch(`${BASE_URL}/api/announcements`);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -36,12 +37,12 @@ export default function AnnouncementPage() {
                 <p>{announcement.description}</p>
                 {announcement.image && (
                   <img
-                    src={`http://10.170.82.215:3001/uploads/${announcement.image}`}
+                    src={`${BASE_URL}/uploads/${announcement.image}`}
                     alt={announcement.title}
                     className="announcement-card-image"
                   />
                 )}
-                <a href="#" className="read-more">Read More</a>
+                <button className="read-more">Read More</button>
               </div>
             ))
           ) : (
@@ -76,14 +77,14 @@ export default function AnnouncementPage() {
         <h2>Visual Announcements</h2>
         <div className="announcement-image-grid">
           {/* These images are static, consider making them dynamic if they are related to announcements */}
-          <img src="/Alert.png" alt="Announcement Image 1" />
-          <img src="Alert2.jpg" alt="Announcement Image 2" />
-          <img src="Alert3.jpg" alt="Announcement Image 3" />
-          <img src="Medical.jpg" alt="Announcement Image 4" />
-          <img src="slide1.jpg" alt="Announcement Image 5" />
-          <img src="slide2.jpg" alt="Announcement Image 6" />
-          <img src="slide3.jpg" alt="Announcement Image 7" />
-          <img src="/slide.jpg" alt="Announcement Image 8" />
+          <img src="/Alert.png" alt="Announcement 1" />
+          <img src="Alert2.jpg" alt="Announcement 2" />
+          <img src="Alert3.jpg" alt="Announcement 3" />
+          <img src="Medical.jpg" alt="Medical Information" />
+          <img src="slide1.jpg" alt="Slide 1" />
+          <img src="slide2.jpg" alt="Slide 2" />
+          <img src="slide3.jpg" alt="Slide 3" />
+          <img src="/slide.jpg" alt="Slide" />
         </div>
       </section>
 

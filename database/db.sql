@@ -103,7 +103,10 @@ CREATE TABLE `users` (
   `STATUS` varchar(255) DEFAULT 'Pending',
   `IMAGE` varchar(255) NOT NULL,
   `EMAIL` varchar(255) NOT NULL,
-  `push_token` varchar(255) DEFAULT NULL
+  `push_token` varchar(255) DEFAULT NULL,
+  `verification_token` varchar(255) DEFAULT NULL,
+  `email_verification_code` VARCHAR(10) DEFAULT NULL,
+  `email_verification_code_expires_at` DATETIME DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
@@ -198,6 +201,18 @@ COMMIT;
 --
 -- Table structure for table `announcements`
 --
+
+CREATE TABLE `contact_messages` (
+  `id` INT(11) NOT NULL AUTO_INCREMENT,
+  `name` VARCHAR(255) NOT NULL,
+  `email` VARCHAR(255) NOT NULL,
+  `subject` VARCHAR(255) NOT NULL,
+  `message` TEXT NOT NULL,
+  `timestamp` DATETIME NOT NULL,
+  `status` VARCHAR(50) DEFAULT 'unread',
+  `replies` JSON DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 CREATE TABLE `announcements` (
   `_id` INT(11) NOT NULL AUTO_INCREMENT,

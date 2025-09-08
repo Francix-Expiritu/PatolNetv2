@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Plus, Edit2, Trash2, Calendar, FileText, Image, X, Save, Loader } from "lucide-react";
 import "./AdminActivities.css";
-import Navbar from './Navbar';
+import Navbar from './Sidebar';
+import { BASE_URL } from '../config';
 
 function AdminActivities() {
   const [activities, setActivities] = useState([]); // Initialize as empty array
@@ -20,7 +21,7 @@ function AdminActivities() {
   const fetchActivities = useCallback(async () => {
     setIsLoading(true);
     try {
-      const response = await fetch("http://10.170.82.215:3001/api/activities");
+      const response = await fetch(`${BASE_URL}/api/activities`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -66,12 +67,12 @@ function AdminActivities() {
     try {
       let response;
       if (editing) {
-        response = await fetch(`http://10.170.82.215:3001/api/activities/${currentActivityId}`, {
+        response = await fetch(`${BASE_URL}/api/activities/${currentActivityId}`, {
           method: "PUT",
           body: formData,
         });
       } else {
-        response = await fetch("http://10.170.82.215:3001/api/activities", {
+        response = await fetch(`${BASE_URL}/api/activities`, {
           method: "POST",
           body: formData,
         });
@@ -99,14 +100,14 @@ function AdminActivities() {
     setDate(activity.date.split('T')[0]); // Format date for input type="date"
     setDescription(activity.description);
     setImage(null); // Clear image input
-    setImagePreview(activity.image ? `http://10.170.82.215:3001/uploads/${activity.image}` : "");
+    setImagePreview(activity.image ? `${BASE_URL}/uploads/${activity.image}` : "");
     setShowForm(true);
   };
 
   const handleDelete = async (id) => {
     setIsLoading(true);
     try {
-      const response = await fetch(`http://10.170.82.215:3001/api/activities/${id}`, {
+      const response = await fetch(`${BASE_URL}/api/activities/${id}`, {
         method: "DELETE",
       });
 
@@ -326,7 +327,7 @@ function AdminActivities() {
                 className="add-activity-btn"
               >
                 <Plus size={20} />
-                Add Your First Activity
+                Adding Your First Activity
               </button>
             </div>
           ) : (
@@ -339,7 +340,7 @@ function AdminActivities() {
                   {activity.image && (
                     <div className="activity-image">
                       <img
-                        src={`http://10.170.82.215:3001/uploads/${activity.image}`}
+                        src={`${BASE_URL}/uploads/${activity.image}`}
                         alt={activity.title}
                         className="activity-image-tag"
                       />

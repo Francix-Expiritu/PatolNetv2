@@ -121,7 +121,7 @@ const IncidentReport: React.FC = () => {
   // Load existing incident data
   const loadIncidentData = async () => {
     try {
-      const response = await axios.get(`http://10.170.82.215:3001/api/incidents/${incidentId}`);
+      const response = await axios.get(`http://192.168.100.3:3001/api/incidents/${incidentId}`);
       const incident = response.data;
       
       setIncidentType(incident.type);
@@ -145,7 +145,7 @@ const IncidentReport: React.FC = () => {
       }
       
       if (incident.image_path) {
-        setImage(`http://10.170.82.215:3001/uploads/${incident.image_path}`);
+        setImage(`http://192.168.100.3:3001/uploads/${incident.image_path}`);
       }
       
       if (incident.created_at) {
@@ -177,7 +177,7 @@ const IncidentReport: React.FC = () => {
           text: "Confirm",
           onPress: async () => {
             try {
-              const response = await axios.put(`http://10.170.82.215:3001/api/incidents/${incidentId}/resolve`, {
+              const response = await axios.put(`http://192.168.100.3:3001/api/incidents/${incidentId}/resolve`, {
                 resolved_by: username,
                 resolved_at: new Date().toISOString()
               });
@@ -210,7 +210,7 @@ const IncidentReport: React.FC = () => {
     if (!username) return;
     
     try {
-      const response = await axios.get(`http://10.170.82.215:3001/api/logs/${username}`);
+      const response = await axios.get(`http://192.168.100.3:3001/api/logs/${username}`);
       const logs = response.data;
       
       console.log('Fetched logs for user:', username, 'Count:', logs.length);
@@ -460,7 +460,7 @@ const IncidentReport: React.FC = () => {
         } as any);
       }
 
-      const response = await fetch("http://10.170.82.215:3001/api/incidents", {
+      const response = await fetch("http://192.168.100.3:3001/api/incidents", {
         method: "POST",
         body: formData,
       });
@@ -571,7 +571,7 @@ const IncidentReport: React.FC = () => {
             >
               {userImage ? (
                 <Image 
-                  source={{ uri: `http://10.170.82.215:3001/uploads/${userImage}` }}
+                  source={{ uri: `http://192.168.100.3:3001/uploads/${userImage}` }}
                   style={styles.profileImage}
                   onError={() => console.log("Error loading profile image")}
                 />

@@ -1,9 +1,21 @@
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow-y: auto; /* allow scrolling */
+}
+
 .hero {
-  background-image: url('/src/image.png'); /* Use your actual path */
+  position: relative;
+  height: 100vh; /* adjust as needed */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-image: url('/src/image.png');
   background-size: cover;
   background-position: center;
-  background-repeat: no-repeat;
 }
+
 
 .login-btn1 {
   padding: 15px 30px;
@@ -42,4 +54,53 @@
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 }
 
+.hero {
+  position: relative; /* instead of absolute/fixed */
+  height: 100vh;      /* full screen */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 
+.overlay {
+  text-align: center;
+  color: white;
+  padding: 20px;
+}
+
+.about-section {
+  position: relative;  /* make sure it's below */
+  
+  background: #f9f9f9;
+  z-index: 1;
+}
+
+@media (max-width: 768px) {
+  .overlay h2 {
+    font-size: 2rem;
+  }
+
+  .overlay p {
+    font-size: 1rem;
+  }
+
+  .login-btn {
+    padding: 12px 24px;
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .overlay h2 {
+    font-size: 1.5rem;
+  }
+
+  .overlay p {
+    font-size: 0.9rem;
+  }
+
+  .login-btn {
+    padding: 10px 20px;
+    font-size: 0.9rem;
+  }
+}

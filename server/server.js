@@ -1,9 +1,12 @@
+require('dotenv').config();
 const express = require("express");
 const mysql = require("mysql2");
 const cors = require("cors");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
+const crypto = require("crypto");
+const nodemailer = require("nodemailer");
 
 const app = express();
 app.use(cors());
@@ -47,6 +50,15 @@ db.connect((err) => {
   }
 });
 
+// Nodemailer transporter
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASSWORD,
+  },
+});
+
 // Helper function to get GMT+8 time
 function getGMT8Time() {
   const now = new Date();
@@ -87,7 +99,11 @@ app.post("/login", (req, res) => {
     }
 
     const user = results[0];
-    console.log(`User found: ${user.USER}, Role: ${user.ROLE}, Status: ${user.STATUS}`);
+            console.log(`User found: ${user.USER}, Role: '${user.ROLE}', Status: '${user.STATUS}'`); // Added quotes for clarity
+    console.log(`User role from DB (original): '${user.ROLE}'`); // New log
+    console.log(`User role from DB (lowercase): '${user.ROLE.toLowerCase()}'`); // New log // Added quotes for clarity
+    console.log(`User role from DB (original): '${user.ROLE}'`); // New log
+    console.log(`User role from DB (lowercase): '${user.ROLE.toLowerCase()}'`); // New log
 
     // Check if user status allows login
     if (user.STATUS !== "Verified") {
@@ -110,19 +126,29 @@ app.post("/login", (req, res) => {
 
     if (clientType === 'web') {
       // ReactJS - Allow all roles for web application
-      allowedRoles = ['Admin', 'Tanod', 'Resident'];
+      allowedRoles = ['admin', 'tanod', 'resident']; // Changed to lowercase
       clientName = "web application";
     } else if (clientType === 'mobile') {
       // React Native - Only Tanod and Resident allowed
-      allowedRoles = ['Tanod', 'Resident'];
+      allowedRoles = ['tanod', 'resident']; // Changed to lowercase
       clientName = "mobile application";
     }
+    console.log(`Client Type: '${clientType}'`); // New log
+    console.log(`Allowed Roles for this client type: ${JSON.stringify(allowedRoles)}`); // New log
 
-    // Check if user role is allowed for this client
-    if (!allowedRoles.includes(user.ROLE)) {
+    // Check if user.ROLE is defined and not empty
+    if (!user.ROLE || user.ROLE.trim() === '') {
+      console.log(`Access denied: User role is undefined or empty for user ${user.USER}.`);
+      return res.status(403).json({
+        error: "Access denied. Your account has no assigned role. Please contact an administrator."
+      });
+    }
+
+    // Check if user role is allowed for this client (case-insensitive)
+    if (!allowedRoles.includes(user.ROLE.toLowerCase())) { // Convert user.ROLE to lowercase
       console.log(`Access denied for role ${user.ROLE} on ${clientName}.`);
-      return res.status(403).json({ 
-        error: `Access denied. Only ${allowedRoles.join(' and ')} users are allowed to access the ${clientName}.` 
+      return res.status(403).json({
+        error: `Access denied. Only ${allowedRoles.join(' and ')} users are allowed to access the ${clientName}.`
       });
     }
 
@@ -909,28 +935,162 @@ app.get("/api/incidents/reports-history/:username", (req, res) => {
   });
 });
 
+// Email verification code generation and sending
+app.post("/pre-register-send-code", (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).json({ success: false, message: "Email is required" });
+  }
+
+  // Generate a 6-digit numeric code
+  const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+  // Set expiration time (e.g., 10 minutes from now)
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes in milliseconds
+
+  // Check if email already exists in users table
+  const checkEmailSql = "SELECT ID, STATUS FROM users WHERE EMAIL = ?";
+  db.query(checkEmailSql, [email], (err, results) => {
+    if (err) {
+      console.error("❌ SQL error checking email existence:", err);
+      return res.status(500).json({ success: false, message: "Database error" });
+    }
+
+    if (results.length > 0) {
+      const user = results[0];
+      if (user.STATUS === "Verified") {
+        return res.status(400).json({ success: false, message: "This email is already registered and verified." });
+      }
+      // If email exists but is not verified, update the existing record with new code
+      const updateSql = "UPDATE users SET email_verification_code = ?, email_verification_code_expires_at = ? WHERE EMAIL = ?";
+      db.query(updateSql, [verificationCode, expiresAt, email], (updateErr, updateResult) => {
+        if (updateErr) {
+          console.error("❌ SQL error updating verification code for existing user:", updateErr);
+          return res.status(500).json({ success: false, message: "Database error" });
+        }
+        sendVerificationEmail(email, verificationCode, res);
+      });
+    } else {
+      // If email does not exist, insert a new record with 'Pending' status
+      const insertSql = "INSERT INTO users (EMAIL, STATUS, email_verification_code, email_verification_code_expires_at) VALUES (?, ?, ?, ?)";
+      db.query(insertSql, [email, "Pending", verificationCode, expiresAt], (insertErr, insertResult) => {
+        if (insertErr) {
+          console.error("❌ SQL error inserting new user for verification:", insertErr);
+          return res.status(500).json({ success: false, message: "Database error" });
+        }
+        sendVerificationEmail(email, verificationCode, res);
+      });
+    }
+  });
+});
+
+function sendVerificationEmail(email, verificationCode, res) {
+  const mailOptions = {
+    from: `"PatroNet" <${process.env.EMAIL_USER}>`,
+    to: email,
+    subject: "Your Email Verification Code",
+    html: `Your verification code is: <strong>${verificationCode}</strong>. It will expire in 10 minutes.`,
+  };
+
+  transporter.sendMail(mailOptions, (error, info) => {
+    if (error) {
+      console.error("❌ Error sending verification email:", error);
+      // Log the full error object for more details
+      console.error("Nodemailer error details:", error); 
+      return res.status(500).json({ success: false, message: "Error sending verification email" });
+    }
+    console.log("✅ Verification email sent:", info.response);
+    res.json({ success: true, message: "Verification code sent to your email." });
+  });
+}
+
 // Register route
 app.post("/register", (req, res) => {
   const { username, password, role, name, email, address } = req.body;
-  const status = "Pending";
 
   if (!username || !password || !role || !name || !email || !address) {
     return res.status(400).json({ success: false, message: "Missing required fields" });
   }
 
-  // Updated SQL query to include NAME and EMAIL fields
-  const sql = "INSERT INTO users (USER, PASSWORD, ROLE, STATUS, NAME, EMAIL, ADDRESS) VALUES (?, ?, ?, ?, ?, ?, ?)";
-  
-  db.query(sql, [username, password, role, status, name, email, address], (err, result) => {
+  // 1. Check if the email has been pre-verified
+  const checkEmailVerifiedSql = "SELECT ID, STATUS FROM users WHERE EMAIL = ?";
+  db.query(checkEmailVerifiedSql, [email], (err, results) => {
     if (err) {
-      if (err.code === "ER_DUP_ENTRY") {
-        return res.status(409).json({ success: false, message: "Username already exists" });
-      }
-      console.error("❌ SQL insert error:", err);
+      console.error("❌ SQL error checking email verification status:", err);
       return res.status(500).json({ success: false, message: "Database error" });
     }
 
-    res.json({ success: true, message: "User registered successfully" });
+    if (results.length === 0 || results[0].STATUS !== "Email Verified") {
+      return res.status(403).json({ success: false, message: "Email not pre-verified. Please verify your email first." });
+    }
+
+    // Email is pre-verified, proceed with full registration
+    const userIdToUpdate = results[0].ID; // Get the ID of the pre-registered entry
+
+    // 2. Insert the new user with 'Verified' status
+    // Ensure all fields are updated, including those that might have been null during pre-registration
+    const insertUserSql = `
+      UPDATE users 
+      SET USER = ?, PASSWORD = ?, ROLE = ?, NAME = ?, ADDRESS = ?, STATUS = 'Verified', 
+          email_verification_code = NULL, email_verification_code_expires_at = NULL
+      WHERE ID = ? AND EMAIL = ?
+    `;
+    
+    db.query(insertUserSql, [username, password, role, name, address, userIdToUpdate, email], (err, result) => {
+      if (err) {
+        if (err.code === "ER_DUP_ENTRY") {
+          // This could happen if username is duplicated
+          return res.status(409).json({ success: false, message: "Username already exists" });
+        }
+        console.error("❌ SQL insert/update error during registration:", err);
+        return res.status(500).json({ success: false, message: "Database error" });
+      }
+
+      if (result.affectedRows === 0) {
+        return res.status(500).json({ success: false, message: "Failed to complete registration. User not found or no changes made." });
+      }
+
+      console.log("✅ User registered successfully and email verified.");
+      res.json({ success: true, message: "User registered successfully. Your email has been verified." });
+    });
+  });
+});
+
+app.post("/pre-register-verify-code", (req, res) => {
+  const { email, code } = req.body;
+
+  if (!email || !code) {
+    return res.status(400).json({ success: false, message: "Email and code are required." });
+  }
+
+  const sql = "SELECT email_verification_code, email_verification_code_expires_at FROM users WHERE EMAIL = ?";
+  db.query(sql, [email], (err, results) => {
+    if (err) {
+      console.error("❌ SQL error fetching verification code:", err);
+      return res.status(500).json({ success: false, message: "Database error" });
+    }
+
+    if (results.length === 0) {
+      return res.status(404).json({ success: false, message: "Email not found." });
+    }
+
+    const user = results[0];
+    const storedCode = user.email_verification_code;
+    const expiresAt = new Date(user.email_verification_code_expires_at);
+
+    if (!storedCode || storedCode !== code || new Date() > expiresAt) {
+      return res.status(400).json({ success: false, message: "Invalid or expired verification code." });
+    }
+
+    // Code is valid, update user status to 'Email Verified' and clear code
+    const updateSql = "UPDATE users SET STATUS = 'Email Verified', email_verification_code = NULL, email_verification_code_expires_at = NULL WHERE EMAIL = ?";
+    db.query(updateSql, [email], (updateErr, updateResult) => {
+      if (updateErr) {
+        console.error("❌ SQL update error (code verification):", updateErr);
+        return res.status(500).json({ success: false, message: "Database error" });
+      }
+      res.json({ success: true, message: "Email verified successfully. You can now proceed with registration." });
+    });
   });
 });
 
@@ -1832,7 +1992,137 @@ app.get("/api/logs_patrol", (req, res) => {
   });
 });
 
+// API endpoint to receive contact messages
+app.post("/api/contact-messages", (req, res) => {
+  const { name, email, subject, message } = req.body;
+
+  if (!name || !email || !subject || !message) {
+    return res.status(400).json({ success: false, message: "All fields are required." });
+  }
+
+  const currentTime = getGMT8Time();
+
+  const sql = `
+    INSERT INTO contact_messages (name, email, subject, message, timestamp, status)
+    VALUES (?, ?, ?, ?, ?, 'unread')
+  `;
+
+  db.query(sql, [name, email, subject, message, currentTime], (err, result) => {
+    if (err) {
+      console.error("❌ SQL error inserting contact message:", err);
+      return res.status(500).json({ success: false, message: "Database error while saving contact message" });
+    }
+    res.json({ success: true, message: "Contact message received and saved", id: result.insertId });
+  });
+});
+
+// API endpoint to fetch all contact messages
+app.get("/api/contact-messages", (req, res) => {
+  const sql = "SELECT * FROM contact_messages ORDER BY timestamp DESC";
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error("❌ SQL error fetching contact messages:", err);
+      return res.status(500).json({ error: "Failed to fetch contact messages" });
+    }
+    res.json(results);
+  });
+});
+
+// API endpoint to update contact message status
+app.put("/api/contact-messages/:id/status", (req, res) => {
+  const messageId = req.params.id;
+  const { status } = req.body;
+
+  if (!messageId || !status) {
+    return res.status(400).json({ success: false, message: "Message ID and status are required" });
+  }
+
+  const validStatuses = ['unread', 'in-progress', 'replied'];
+  if (!validStatuses.includes(status)) {
+    return res.status(400).json({ success: false, message: "Invalid status provided." });
+  }
+
+  const sql = "UPDATE contact_messages SET status = ? WHERE id = ?";
+  db.query(sql, [status, messageId], (err, result) => {
+    if (err) {
+      console.error("❌ SQL error updating contact message status:", err);
+      return res.status(500).json({ success: false, message: "Database error while updating status" });
+    }
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ success: false, message: "Contact message not found" });
+    }
+    res.json({ success: true, message: "Contact message status updated successfully" });
+  });
+});
+
+// API endpoint to add a reply to a contact message
+app.post("/api/contact-messages/:id/replies", (req, res) => {
+  const messageId = req.params.id;
+  const { sender, content } = req.body;
+
+  if (!messageId || !sender || !content) {
+    return res.status(400).json({ success: false, message: "Message ID, sender, and content are required" });
+  }
+
+  const currentTime = getGMT8Time();
+
+  // Assuming replies are stored as a JSON array in the 'replies' column of contact_messages table
+  // First, fetch the current replies
+  const fetchSql = "SELECT replies FROM contact_messages WHERE id = ?";
+  db.query(fetchSql, [messageId], (err, results) => {
+    if (err) {
+      console.error("❌ SQL error fetching replies:", err);
+      return res.status(500).json({ success: false, message: "Database error" });
+    }
+    if (results.length === 0) {
+      return res.status(404).json({ success: false, message: "Contact message not found" });
+    }
+
+    let currentReplies = results[0].replies ? JSON.parse(results[0].replies) : [];
+    const newReply = {
+      id: currentReplies.length > 0 ? Math.max(...currentReplies.map(r => r.id)) + 1 : 1,
+      sender,
+      content,
+      timestamp: currentTime,
+      sent: true // Assuming replies from admin are 'sent'
+    };
+    currentReplies.push(newReply);
+
+    const updateSql = "UPDATE contact_messages SET replies = ?, status = 'replied' WHERE id = ?";
+    db.query(updateSql, [JSON.stringify(currentReplies), messageId], (updateErr, updateResult) => {
+      if (updateErr) {
+        console.error("❌ SQL error updating replies:", updateErr);
+        return res.status(500).json({ success: false, message: "Database error while adding reply" });
+      }
+      res.json({ success: true, message: "Reply added successfully", reply: newReply });
+    });
+  });
+});
+
+// API endpoint to delete a contact message
+app.delete("/api/contact-messages/:id", (req, res) => {
+  const messageId = req.params.id;
+
+  if (!messageId) {
+    return res.status(400).json({ success: false, message: "Message ID is required" });
+  }
+
+  const sql = "DELETE FROM contact_messages WHERE id = ?";
+  db.query(sql, [messageId], (err, result) => {
+    if (err) {
+      console.error("❌ SQL error deleting contact message:", err);
+      return res.status(500).json({ success: false, message: "Database error" });
+    }
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ success: false, message: "Contact message not found" });
+    }
+
+    res.json({ success: true, message: "Contact message deleted successfully" });
+  });
+});
+
 // Start server
-app.listen(3001, () => {
+app.listen(3001, '0.0.0.0', () => {
   console.log("✅ Server running on http://localhost:3001");
 });

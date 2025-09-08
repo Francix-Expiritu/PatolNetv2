@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import Navbar from './Navbar'; // Import the Navbar component
+import { BASE_URL } from '../config';
+
 import './Dashboard.css';
 
 function Dashboard() {
@@ -15,32 +16,32 @@ function Dashboard() {
     const fetchCounts = async () => {
       try {
         // Fetch Incident Count
-        const incidentRes = await fetch("http://10.170.82.215:3001/api/incidents");
+        const incidentRes = await fetch(`${BASE_URL}/api/incidents`);
         const incidentData = await incidentRes.json();
         setIncidentCount(incidentData.length); // Assuming incidents is an array
 
         // Fetch Scheduling Count (Placeholder)
-        const schedulingRes = await fetch("http://10.170.82.215:3001/api/schedules/count");
+        const schedulingRes = await fetch(`${BASE_URL}/api/schedules/count`);
         const schedulingData = await schedulingRes.json();
         setSchedulingCount(schedulingData.count);
 
         // Fetch GIS Mapping Count (Placeholder)
-        const gisMappingRes = await fetch("http://10.170.82.215:3001/api/gis/count");
+        const gisMappingRes = await fetch(`${BASE_URL}/api/gis/count`);
         const gisMappingData = await gisMappingRes.json();
         setGisMappingCount(gisMappingData.count);
 
         // Fetch Patrol Logs Count (Placeholder)
-        const patrolLogsRes = await fetch("http://10.170.82.215:3001/api/patrollogs/count");
+        const patrolLogsRes = await fetch(`${BASE_URL}/api/patrollogs/count`);
         const patrolLogsData = await patrolLogsRes.json();
         setPatrolLogsCount(patrolLogsData.count);
 
         // Fetch Activities Count (Placeholder)
-        const activitiesRes = await fetch("http://10.170.82.215:3001/api/activities/count");
+        const activitiesRes = await fetch(`${BASE_URL}/api/activities/count`);
         const activitiesData = await activitiesRes.json();
         setActivitiesCount(activitiesData.count);
 
         // Fetch Accounts Count (Placeholder)
-        const accountsRes = await fetch("http://10.170.82.215:3001/api/accounts/count");
+        const accountsRes = await fetch(`${BASE_URL}/api/accounts/count`);
         const accountsData = await accountsRes.json();
         setAccountsCount(accountsData.count);
 
@@ -54,8 +55,7 @@ function Dashboard() {
 
   return (
     <div className="dashboard-container">
-      {/* Replace the hardcoded header with the Navbar component */}
-      <Navbar />
+      
       
       <div className="homepage-wrapper">
         <div className="homepage-welcome">

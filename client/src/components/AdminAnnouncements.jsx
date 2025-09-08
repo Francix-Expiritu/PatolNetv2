@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Plus, Edit2, Trash2, Calendar, FileText, Image, X, Save, Loader } from "lucide-react";
 import "./AdminAnnouncements.css"; // Assuming you'll create this CSS file
-import Navbar from './Navbar';
+import Navbar from './Sidebar';
+import { BASE_URL } from '../config';
 
 function AdminAnnouncements() {
   const [announcements, setAnnouncements] = useState([]);
@@ -21,7 +22,7 @@ function AdminAnnouncements() {
   const fetchAnnouncements = useCallback(async () => {
     setIsLoading(true);
     try {
-      const response = await fetch("http://10.170.82.215:3001/api/announcements");
+      const response = await fetch(`${BASE_URL}/api/announcements`);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -69,12 +70,12 @@ function AdminAnnouncements() {
     try {
       let response;
       if (editing) {
-        response = await fetch(`http://10.170.82.215:3001/api/announcements/${currentAnnouncementId}`, {
+        response = await fetch(`${BASE_URL}/api/announcements/${currentAnnouncementId}`, {
           method: "PUT",
           body: formData,
         });
       } else {
-        response = await fetch("http://10.170.82.215:3001/api/announcements", {
+        response = await fetch(`${BASE_URL}/api/announcements`, {
           method: "POST",
           body: formData,
         });
@@ -102,7 +103,7 @@ function AdminAnnouncements() {
     setDate(announcement.date.split('T')[0]); // Format date for input type="date"
     setDescription(announcement.description);
     setImage(null); // Clear image input
-    setImagePreview(announcement.image ? `http://10.170.82.215:3001/uploads/${announcement.image}` : "");
+    setImagePreview(announcement.image ? `${BASE_URL}/uploads/${announcement.image}` : "");
     setPostedBy(announcement.posted_by || ""); // Set posted_by
     setShowForm(true);
   };
@@ -110,7 +111,7 @@ function AdminAnnouncements() {
   const handleDelete = async (id) => {
     setIsLoading(true);
     try {
-      const response = await fetch(`http://10.170.82.215:3001/api/announcements/${id}`, {
+      const response = await fetch(`${BASE_URL}/api/announcements/${id}`, {
         method: "DELETE",
       });
 
@@ -361,7 +362,7 @@ function AdminAnnouncements() {
                   {announcement.image && (
                     <div className="announcement-image">
                       <img
-                        src={`http://10.170.82.215:3001/uploads/${announcement.image}`}
+                        src={`${BASE_URL}/uploads/${announcement.image}`}
                         alt={announcement.title}
                         className="announcement-image-tag"
                       />

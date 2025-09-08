@@ -4,6 +4,7 @@ import axios from "axios";
 import "./Activities.css";
 import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
+import { BASE_URL } from '../config';
 
 export default function Activities() {
   const [activities, setActivities] = useState([]);
@@ -28,7 +29,7 @@ export default function Activities() {
 
   const fetchActivities = async () => {
     try {
-      const response = await axios.get("http://10.170.82.215:3001/api/activities");
+      const response = await axios.get(`${BASE_URL}/api/activities`);
       setActivities(response.data);
     } catch (error) {
       console.error("Error fetching activities:", error);
@@ -59,7 +60,7 @@ export default function Activities() {
                   <div key={activity._id} className="activity-card">
                     {activity.image && (
                       <img
-                        src={`http://10.170.82.215:3001/uploads/${activity.image}`}
+                        src={`${BASE_URL}/uploads/${activity.image}`}
                         alt={activity.title}
                         className="activity-card-image"
                       />
@@ -70,7 +71,7 @@ export default function Activities() {
                       </span>
                       <h3 className="activity-card-title">{activity.title}</h3>
                       <p>{activity.description}</p>
-                      <a href="#" className="read-more-btn">
+                      <a href="/" className="read-more-btn">
                         Read More
                       </a>
                     </div>
@@ -87,19 +88,19 @@ export default function Activities() {
             <div className="popular-news">
               <h3>POPULAR NEWS</h3>
               <div className="news-item">
-                <a href="#">Laguna LGU Launches New Waste Management Program</a>
+                <a href="/">Laguna LGU Launches New Waste Management Program</a>
                 <span className="news-date">August 5, 2025</span>
               </div>
               <div className="news-item">
-                <a href="#">Pagsanjan Falls Tourism Sees Boost After Infrastructure Upgrades</a>
+                <a href="/">Pagsanjan Falls Tourism Sees Boost After Infrastructure Upgrades</a>
                 <span className="news-date">July 28, 2025</span>
               </div>
               <div className="news-item">
-                <a href="#">Calamba City Hosts Successful Youth Sports Festival</a>
+                <a href="/">Calamba City Hosts Successful Youth Sports Festival</a>
                 <span className="news-date">August 1, 2025</span>
               </div>
               <div className="news-item">
-                <a href="#">New Road Network Project to Ease Traffic in Santa Rosa</a>
+                <a href="/">New Road Network Project to Ease Traffic in Santa Rosa</a>
                 <span className="news-date">July 20, 2025</span>
               </div>
             </div>

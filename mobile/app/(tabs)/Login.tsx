@@ -77,7 +77,7 @@ const Login: React.FC = () => {
       }
 
       // Send SOS report to backend
-      const response = await axios.post("http://10.170.82.215:3001/sos-report", {
+      const response = await axios.post("http://192.168.100.3:3001/sos-report", {
         userId: storedUserId,
         username: storedUsername,
         latitude,
@@ -105,7 +105,7 @@ const Login: React.FC = () => {
 
     setLoading(true);
     try {
-        const response = await axios.post("http://10.170.82.215:3001/login", {
+        const response = await axios.post("http://192.168.100.3:3001/login", {
           username,
           password,
           clientType: 'mobile' // Specify this is a mobile client request

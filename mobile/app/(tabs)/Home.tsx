@@ -46,7 +46,7 @@ const Home: React.FC = () => {
   
   const fetchUserData = async () => {
     try {
-      const response = await axios.get(`http://10.170.82.215:3001/api/user/${username}`);
+      const response = await axios.get(`http://192.168.100.3:3001/api/user/${username}`);
       
       if (response.data) {
         setUserData(response.data);

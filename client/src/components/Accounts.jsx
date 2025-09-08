@@ -1,19 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { BASE_URL } from '../config';
+
 import './Accounts.css';
-import Navbar from './Navbar'; 
+import Navbar from './Sidebar'; 
+import AddAccountModal from './Modals/AddAccountModal'; // Import the new modal component
+import EditAccountModal from './Modals/EditAccountModal';
 
 function Accounts() {
   const [accounts, setAccounts] = useState([]);
-  const [newAccount, setNewAccount] = useState({
-    type: 'Resident',
-    name: '',
-    username: '',
-    email: '',
-    password: '',
-    address: '',
-    status: 'Pending'
-  });
 
   const [editAccount, setEditAccount] = useState({
     id: null,
@@ -25,7 +19,7 @@ function Accounts() {
     status: ''
   });
 
-  const [showForm, setShowForm] = useState(false);
+  const [showForm, setShowForm] = useState(false); // This now controls the AddAccountModal
   const [showEditForm, setShowEditForm] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState('All');
@@ -46,7 +40,7 @@ function Accounts() {
 
   const fetchUsers = async () => {
     try {
-      const response = await fetch('http://10.170.82.215:3001/api/users');
+      const response = await fetch(`${BASE_URL}/api/users`);
       const data = await response.json();
       setAccounts(data);
     } catch (error) {
@@ -54,59 +48,9 @@ function Accounts() {
     }
   };
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setNewAccount((prev) => ({ ...prev, [name]: value }));
-  };
-
   const handleEditInputChange = (e) => {
     const { name, value } = e.target;
     setEditAccount((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleAddAccount = async (e) => {
-    e.preventDefault();
-    if (!newAccount.name || !newAccount.username || !newAccount.password) return;
-    
-    try {
-      const response = await fetch('http://10.170.82.215:3001/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          username: newAccount.username,
-          password: newAccount.password,
-          role: newAccount.type,
-          name: newAccount.name,
-          email: newAccount.email,
-          address: newAccount.address,
-        }),
-      });
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        alert('Account created successfully!');
-        // Refresh the user list
-        fetchUsers();
-        // Reset form
-        setNewAccount({
-          type: 'Resident',
-          name: '',
-          username: '',
-          email: '',
-          password: '',
-          status: 'Pending'
-        });
-        setShowForm(false);
-      } else {
-        alert(data.message || 'Failed to create account');
-      }
-    } catch (error) {
-      console.error("Failed to create account:", error);
-      alert('Failed to create account. Please try again.');
-    }
   };
 
   // Improved handleEditAccount function for the frontend
@@ -116,7 +60,7 @@ const handleEditAccount = async (e) => {
   if (!editAccount.name || !editAccount.username) return;
   
   try {
-    const response = await fetch(`http://10.170.82.215:3001/api/users/${editAccount.id}`, {
+    const response = await fetch(`${BASE_URL}/api/users/${editAccount.id}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -178,7 +122,7 @@ const handleEditAccount = async (e) => {
   }
   
   try {
-    const response = await fetch(`http://10.170.82.215:3001/api/users/${accountId}`, {
+    const response = await fetch(`${BASE_URL}/api/users/${accountId}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
@@ -261,240 +205,20 @@ const handleEditAccount = async (e) => {
                 </div>
               </div>
 
-              {showForm && (
-                <div className="mt-6 bg-gray-50 p-4 rounded-md border border-gray-200">
-                  <h3 className="text-md font-medium text-gray-900 mb-4">Create New Account</h3>
-                  <form className="space-y-4" onSubmit={handleAddAccount}>
-                    <div className="grid grid-cols-1 gap-y-4 gap-x-4 sm:grid-cols-6">
-                     
-                      <div className="sm:col-span-3">
-                        <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-                          Full Name
-                        </label>
-                        <input
-                          type="text"
-                          name="name"
-                          id="name"
-                          value={newAccount.name}
-                          onChange={handleInputChange}
-                          required
-                          className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
-                        />
-                      </div>
-                      <div className="sm:col-span-2">
-                        <label htmlFor="type" className="block text-sm font-medium text-gray-700">
-                          Account Type
-                        </label>
-                        <select
-                          id="type"
-                          name="type"
-                          value={newAccount.type}
-                          onChange={handleInputChange}
-                          className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
-                        >
-                          <option value="Resident">Resident</option>
-                          <option value="Tanod">Tanod</option>
-                          <option value="Admin">Admin</option>
-                        </select>
-                      </div>
+              {/* Add Account Modal */}
+              <AddAccountModal
+                isOpen={showForm}
+                onClose={() => setShowForm(false)}
+                onAccountAdded={fetchUsers}
+              />
 
-                      
-
-                      <div className="sm:col-span-3">
-                        <label htmlFor="username" className="block text-sm font-medium text-gray-700">
-                          Username
-                        </label>
-                        <input
-                          type="text"
-                          name="username"
-                          id="username"
-                          value={newAccount.username}
-                          onChange={handleInputChange}
-                          required
-                          className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
-                        />
-                      </div>
-                        <div className="sm:col-span-3">
-                        <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                          Password
-                        </label>
-                        <input
-                          type="password"
-                          name="password"
-                          id="password"
-                          value={newAccount.password}
-                          onChange={handleInputChange}
-                          required
-                          className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
-                        />
-                      </div>
-                      <div className="sm:col-span-3">
-                        <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                          Email Address
-                        </label>
-                        <input
-                          type="email"
-                          name="email"
-                          id="email"
-                          value={newAccount.email}
-                          onChange={handleInputChange}
-                          className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
-                        />
-                      </div>
-                      
-                      <div className="sm:col-span-3">
-                        <label htmlFor="address" className="block text-sm font-medium text-gray-700">
-                          Address
-                        </label>
-                        <input
-                          type="text"
-                          name="address"
-                          id="address"
-                          value={newAccount.address}
-                          onChange={handleInputChange}
-                          className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
-                        />
-                      </div>
-                      
-                    </div>
-
-                    <div className="flex justify-end">
-                      <button
-                        type="button"
-                        onClick={() => setShowForm(false)}
-                        className="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 mr-3"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="submit"
-                        className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                      >
-                        Save Account
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              )}
-
-              {showEditForm && (
-                <div className="mt-6 bg-gray-50 p-4 rounded-md border border-gray-200">
-                  <h3 className="text-md font-medium text-gray-900 mb-4">Edit Account</h3>
-                  <form className="space-y-4" onSubmit={handleEditAccount}>
-                    <div className="grid grid-cols-1 gap-y-4 gap-x-4 sm:grid-cols-6">
-                      
-                      <div className="sm:col-span-3">
-                        <label htmlFor="edit-name" className="block text-sm font-medium text-gray-700">
-                          Full Name
-                        </label>
-                        <input
-                          type="text"
-                          name="name"
-                          id="edit-name"
-                          value={editAccount.name}
-                          onChange={handleEditInputChange}
-                          required
-                          className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
-                        />
-                      </div>
-                      
-                      <div className="sm:col-span-1">
-                        <label htmlFor="edit-type" className="block text-sm font-medium text-gray-700">
-                          Account Type
-                        </label>
-                        <select
-                          id="edit-type"
-                          name="type"
-                          value={editAccount.type}
-                          onChange={handleEditInputChange}
-                          className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
-                        >
-                          <option value="Resident">Resident</option>
-                          <option value="Tanod">Tanod</option>
-                          <option value="Admin">Admin</option>
-                        </select>
-                      </div>
-
-                      <div className="sm:col-span-1">
-                        <label htmlFor="edit-status" className="block text-sm font-medium text-gray-700">
-                          Account Status
-                        </label>
-                        <select
-                          id="edit-status"
-                          name="status"
-                          value={editAccount.status}
-                          onChange={handleEditInputChange}
-                          className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
-                        >
-                          <option value="Pending">Pending</option>
-                          <option value="Verified">Verified</option>
-                        </select>
-                      </div>
-
-                      
-
-                      <div className="sm:col-span-3">
-                        <label htmlFor="edit-username" className="block text-sm font-medium text-gray-700">
-                          Username
-                        </label>
-                        <input
-                          type="text"
-                          name="username"
-                          id="edit-username"
-                          value={editAccount.username}
-                          onChange={handleEditInputChange}
-                          required
-                          className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
-                        />
-                      </div>
-
-                      <div className="sm:col-span-3">
-                        <label htmlFor="edit-email" className="block text-sm font-medium text-gray-700">
-                          Email Address
-                        </label>
-                        <input
-                          type="email"
-                          name="email"
-                          id="edit-email"
-                          value={editAccount.email}
-                          onChange={handleEditInputChange}
-                          className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
-                        />
-                      </div>
-
-                      <div className="sm:col-span-3">
-                          <label htmlFor="edit-address" className="block text-sm font-medium text-gray-700">
-                            Address
-                          </label>
-                          <input
-                            type="text"
-                            name="address"
-                            id="edit-address"
-                            value={editAccount.address}
-                            onChange={handleEditInputChange}
-                            className="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md"
-                          />
-                        </div>
-                    </div>
-
-                    <div className="flex justify-end">
-                      <button
-                        type="button"
-                        onClick={() => setShowEditForm(false)}
-                        className="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 mr-3"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="submit"
-                        className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                      >
-                        Update Account
-                      </button>
-                    </div>
-                  </form>
-                </div>
-              )}
+              <EditAccountModal
+                isOpen={showEditForm}
+                onClose={() => setShowEditForm(false)}
+                editAccount={editAccount}
+                handleEditInputChange={handleEditInputChange}
+                handleEditAccount={handleEditAccount}
+              />
 
               <div className="mt-6">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-3 md:space-y-0 mb-4">
@@ -649,15 +373,21 @@ const handleEditAccount = async (e) => {
                                   </td>
                                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                     <button 
-                                      className="text-indigo-600 hover:text-indigo-900 mr-3"
                                       onClick={() => handleEditClick(account)}
+                                      className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm leading-4 font-medium rounded-md text-indigo-600 bg-indigo-100 hover:bg-indigo-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-200 mr-2"
                                     >
+                                      <svg className="-ml-0.5 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                      </svg>
                                       Edit
                                     </button>
                                     <button 
-                                      className="text-red-600 hover:text-red-900"
                                       onClick={() => handleDeleteAccount(account.ID)}
+                                      className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm leading-4 font-medium rounded-md text-red-600 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200"
                                     >
+                                      <svg className="-ml-0.5 mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                      </svg>
                                       Delete
                                     </button>
                                   </td>

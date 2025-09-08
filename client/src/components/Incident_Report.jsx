@@ -1,20 +1,22 @@
 import React, { useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
-import Navbar from './Navbar';
+import Navbar from './Sidebar';
+import ViewIncidentModal from './Modals/ViewIncidentModal';
+import AssignTanodModal from './Modals/Tanodmodal';
+import ConfirmationModal from './Modals/ConfirmationModal';
 import './IncidentReport.css';
+import { BASE_URL } from '../config';
 
 function IncidentReport() {
   const [incidents, setIncidents] = useState([]);
-  const [showModal, setShowModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
   const [selectedIncident, setSelectedIncident] = useState(null);
-  const [modalType, setModalType] = useState('');
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [availableTanods, setAvailableTanods] = useState([]);
   const [selectedTanod, setSelectedTanod] = useState('');
-  const [currentUser, setCurrentUser] = useState(''); // Add current user state
+  const [currentUser, setCurrentUser] = useState('');
   
   const getStatusColor = (status) => {
     switch (status) {
@@ -31,16 +33,14 @@ function IncidentReport() {
 
   // Get current user from localStorage or session
   useEffect(() => {
-    // You can get the current user from localStorage, session, or props
-    // Adjust this based on how you manage user authentication in your app
-    const user = localStorage.getItem('currentUser') || 'Admin'; // Default to 'Admin' if not found
+    const user = localStorage.getItem('currentUser') || 'Admin';
     setCurrentUser(user);
   }, []);
 
   // Simplified data fetching - no audio/notification logic needed here
   useEffect(() => {
     const fetchIncidents = () => {
-      fetch("http://10.170.82.215:3001/api/incidents")
+      fetch(`${BASE_URL}/api/incidents`)
         .then(res => res.json())
         .then(data => {
           setIncidents(data);
@@ -65,7 +65,7 @@ function IncidentReport() {
     // Get today's date
     const today = new Date().toISOString().slice(0, 10);
     
-    fetch("http://10.170.82.215:3001/api/logs")
+    fetch(`${BASE_URL}/api/logs`)
       .then(res => res.json())
       .then(data => {
         // Filter logs for today that have TIME_IN but no TIME_OUT
@@ -94,10 +94,9 @@ function IncidentReport() {
       });
   };
 
-  const handleActionClick = (incident, type) => {
+  const handleViewClick = (incident) => {
     setSelectedIncident(incident);
-    setModalType(type);
-    setShowModal(true);
+    setShowViewModal(true);
   };
 
   const handleAssignTanodClick = (incident) => {
@@ -111,10 +110,9 @@ function IncidentReport() {
     setShowDeleteConfirmation(true);
   };
 
-  const closeModal = () => {
-    setShowModal(false);
+  const closeViewModal = () => {
+    setShowViewModal(false);
     setSelectedIncident(null);
-    setModalType('');
   };
 
   const closeAssignModal = () => {
@@ -146,7 +144,7 @@ function IncidentReport() {
     setIsUpdating(true);
     
     // Update incident status to "In Progress" and assign tanod
-    fetch(`http://10.170.82.215:3001/api/incidents/${selectedIncident.id}/status`, {
+    fetch(`${BASE_URL}/api/incidents/${selectedIncident.id}/status`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -197,7 +195,7 @@ function IncidentReport() {
     setIsUpdating(true);
     
     // Updated to use the resolve endpoint with resolved_by and resolved_at
-    fetch(`http://10.170.82.215:3001/api/incidents/${selectedIncident.id}/resolve`, {
+    fetch(`${BASE_URL}/api/incidents/${selectedIncident.id}/resolve`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -253,7 +251,7 @@ function IncidentReport() {
     
     setIsUpdating(true);
     
-    fetch(`http://10.170.82.215:3001/api/incidents/${selectedIncident.id}`, {
+    fetch(`${BASE_URL}/api/incidents/${selectedIncident.id}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
@@ -331,7 +329,7 @@ function IncidentReport() {
                     <td className="incident-cell">
                       <div className="incident-icon">
                         <img
-                          src={`http://10.170.82.215:3001/uploads/${item.image}`}
+                          src={`${BASE_URL}/uploads/${item.image}`}
                           alt="Incident"
                           className="small-avatar"
                         />
@@ -348,7 +346,7 @@ function IncidentReport() {
                     <td className="actions-cell">
                       <button 
                         className="edit-button"
-                        onClick={() => handleActionClick(item, 'VIEW')}
+                        onClick={() => handleViewClick(item)}
                       >
                         View
                       </button>
@@ -368,201 +366,57 @@ function IncidentReport() {
       </div>
 
       {/* View Incident Modal */}
-      {showModal && selectedIncident && 
-        createPortal(
-          <div className="modal-overlay" onClick={closeModal}>
-            <div className="modal-container" onClick={(e) => e.stopPropagation()}>
-              <div className="modal-header">
-                <h2>Incident Details</h2>
-                <button className="modal-close" onClick={closeModal}>×</button>
-              </div>
-              <div className="modal-body">
-                <div className="modal-field">
-                  <label>ID</label>
-                  <div className="modal-value">#{selectedIncident.id}</div>
-                </div>
-                <div className="modal-field">
-                  <label>Incident</label>
-                  <div className="modal-value">{selectedIncident.incident_type}</div>
-                </div>
-                <div className="modal-field">
-                  <label>Incident Photo</label>
-                  <div className="modal-image-container">
-                    <img 
-                      src={`http://10.170.82.215:3001/uploads/${selectedIncident.image}`} 
-                      alt="Incident" 
-                      className="modal-image" 
-                    />
-                  </div>
-                </div>
-                <div className="modal-field">
-                  <label>Status</label>
-                  <div className="modal-value">{selectedIncident.status}</div>
-                </div>
-                <div className="modal-field">
-                  <label>Location</label>
-                  <div className="modal-value">{selectedIncident.location || "Not specified"}</div>
-                </div>
-                <div className="modal-field">
-                  <label>Reported By</label>
-                  <div className="modal-value">{selectedIncident.reported_by || "Unknown"}</div>
-                </div>
-                <div className="modal-field">
-                  <label>Reported Time</label>
-                  <div className="modal-value">{new Date(selectedIncident.datetime).toLocaleString()}</div>
-                </div>
-                {selectedIncident.assigned_tanod && (
-                  <div className="modal-field">
-                    <label>Assigned Tanod</label>
-                    <div className="modal-value">{selectedIncident.assigned_tanod}</div>
-                  </div>
-                )}
-                {selectedIncident.resolved_by && (
-                  <div className="modal-field">
-                    <label>Resolved By</label>
-                    <div className="modal-value">{selectedIncident.resolved_by}</div>
-                  </div>
-                )}
-                {selectedIncident.resolved_at && (
-                  <div className="modal-field">
-                    <label>Resolved At</label>
-                    <div className="modal-value">{new Date(selectedIncident.resolved_at).toLocaleString()}</div>
-                  </div>
-                )}
-              </div>
-
-              <div className="modal-footer">
-                {selectedIncident.status !== 'Resolved' && (
-                  <>
-                    <button className="btn resolve-btn" onClick={openConfirmationModal}>Mark as Resolved</button>
-                    <button className="btn secondary" onClick={() => handleAssignTanodClick(selectedIncident)}>Assign Tanod</button>
-                  </>
-                )}
-                <button className="btn close" onClick={closeModal}>Close</button>
-              </div>
-            </div>
-          </div>,
-          document.body
-        )
-      }
+      <ViewIncidentModal 
+        showModal={showViewModal}
+        selectedIncident={selectedIncident}
+        currentUser={currentUser}
+        onClose={closeViewModal}
+        onMarkAsResolved={openConfirmationModal}
+        onAssignTanod={() => handleAssignTanodClick(selectedIncident)}
+      />
 
       {/* Assign Tanod Modal */}
-      {showAssignModal && selectedIncident && 
-        createPortal(
-          <div className="modal-overlay" onClick={closeAssignModal}>
-            <div className="modal-container" onClick={(e) => e.stopPropagation()}>
-              <div className="modal-header">
-                <h2>Assign Tanod</h2>
-                <button className="modal-close" onClick={closeAssignModal}>×</button>
-              </div>
-              <div className="modal-body">
-                <div className="modal-field">
-                  <label>Incident ID: #{selectedIncident.id}</label>
-                  <div className="modal-value">{selectedIncident.incident_type}</div>
-                </div>
-                <div className="modal-field">
-                  <label>Available Tanods (Currently On Duty)</label>
-                  {availableTanods.length === 0 ? (
-                    <div className="modal-value" style={{color: '#666', fontStyle: 'italic'}}>
-                      No tanods are currently on duty
-                    </div>
-                  ) : (
-                    <select 
-                      className="tanod-select"
-                      value={selectedTanod}
-                      onChange={(e) => setSelectedTanod(e.target.value)}
-                    >
-                      <option value="">Select a tanod...</option>
-                      {availableTanods.map((tanod) => (
-                        <option key={tanod.ID} value={tanod.USER}>
-                          {tanod.USER} (On duty since: {new Date(tanod.TIME_IN).toLocaleTimeString()})
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </div>
-              </div>
-
-              <div className="modal-footer">
-                <button 
-                  className="btn primary" 
-                  onClick={handleAssignTanod}
-                  disabled={isUpdating || !selectedTanod || availableTanods.length === 0}
-                >
-                  {isUpdating ? 'Assigning...' : 'Assign Tanod'}
-                </button>
-                <button className="btn close" onClick={closeAssignModal}>Cancel</button>
-              </div>
-            </div>
-          </div>,
-          document.body
-        )
-      }
+      <AssignTanodModal 
+        showModal={showAssignModal}
+        selectedIncident={selectedIncident}
+        availableTanods={availableTanods}
+        selectedTanod={selectedTanod}
+        setSelectedTanod={setSelectedTanod}
+        isUpdating={isUpdating}
+        onClose={closeAssignModal}
+        onAssignTanod={handleAssignTanod}
+      />
       
       {/* Mark as Resolved Confirmation Modal */}
-      {showConfirmation && selectedIncident && 
-        createPortal(
-          <div className="modal-overlay" onClick={closeConfirmationModal}>
-            <div className="confirmation-dialog" onClick={(e) => e.stopPropagation()}>
-              <div className="confirmation-header">
-                <h3>Confirm Action</h3>
-                <button className="modal-close" onClick={closeConfirmationModal}>×</button>
-              </div>
-              <div className="confirmation-body">
-                <p>Are you sure you want to mark this incident as resolved?</p>
-                <p>Incident ID: #{selectedIncident.id}</p>
-                <p>Type: {selectedIncident.incident_type}</p>
-                <p>Resolved by: <strong>{currentUser}</strong></p>
-              </div>
-              <div className="confirmation-footer">
-                <button 
-                  className="btn primary" 
-                  onClick={handleMarkAsResolved}
-                  disabled={isUpdating}
-                >
-                  {isUpdating ? 'Updating...' : 'Confirm'}
-                </button>
-                <button className="btn close" onClick={closeConfirmationModal}>Cancel</button>
-              </div>
-            </div>
-          </div>,
-          document.body
-        )
-      }
+      <ConfirmationModal 
+        showModal={showConfirmation}
+        selectedIncident={selectedIncident}
+        currentUser={currentUser}
+        isUpdating={isUpdating}
+        onClose={closeConfirmationModal}
+        onConfirm={handleMarkAsResolved}
+        title="Confirm Action"
+        message="Are you sure you want to mark this incident as resolved?"
+        confirmText="Confirm"
+        showResolvedBy={true}
+      />
 
       {/* Delete Confirmation Modal */}
-      {showDeleteConfirmation && selectedIncident && 
-        createPortal(
-          <div className="modal-overlay" onClick={closeDeleteConfirmationModal}>
-            <div className="confirmation-dialog" onClick={(e) => e.stopPropagation()}>
-              <div className="confirmation-header">
-                <h3>Confirm Delete</h3>
-                <button className="modal-close" onClick={closeDeleteConfirmationModal}>×</button>
-              </div>
-              <div className="confirmation-body">
-                <p>Are you sure you want to delete this incident?</p>
-                <p>Incident ID: #{selectedIncident.id}</p>
-                <p>Type: {selectedIncident.incident_type}</p>
-                <p style={{color: '#dc3545', fontWeight: 'bold'}}>This action cannot be undone.</p>
-              </div>
-              <div className="confirmation-footer">
-                <button 
-                  className="btn primary" 
-                  onClick={handleDeleteIncident}
-                  disabled={isUpdating}
-                  style={{backgroundColor: '#dc3545'}}
-                >
-                  {isUpdating ? 'Deleting...' : 'Delete'}
-                </button>
-                <button className="btn close" onClick={closeDeleteConfirmationModal}>Cancel</button>
-              </div>
-            </div>
-          </div>,
-          document.body
-        )
-      }
+      <ConfirmationModal 
+        showModal={showDeleteConfirmation}
+        selectedIncident={selectedIncident}
+        currentUser={currentUser}
+        isUpdating={isUpdating}
+        onClose={closeDeleteConfirmationModal}
+        onConfirm={handleDeleteIncident}
+        title="Confirm Delete"
+        message="Are you sure you want to delete this incident?"
+        confirmText={isUpdating ? 'Deleting...' : 'Delete'}
+        confirmStyle={{backgroundColor: '#dc3545'}}
+        showResolvedBy={false}
+      />
     </div>
   );
-}
+};
 
 export default IncidentReport;

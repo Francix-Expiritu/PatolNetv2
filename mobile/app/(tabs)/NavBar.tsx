@@ -121,7 +121,7 @@ const NavBar: React.FC<NavBarProps> = ({ username, userImage, userRole }) => {
     if (!username) return;
     
     try {
-      const response = await axios.get(`http://10.170.82.215:3001/api/logs/${username}`);
+      const response = await axios.get(`http://192.168.100.3:3001/api/logs/${username}`);
       const logs = response.data;
       
       console.log('Fetched logs for user:', username, 'Count:', logs.length);
@@ -173,7 +173,7 @@ const NavBar: React.FC<NavBarProps> = ({ username, userImage, userRole }) => {
     if (!username) return;
     
     try {
-      const response = await axios.get(`http://10.170.82.215:3001/api/incidents/assigned/${username}`);
+      const response = await axios.get(`http://192.168.100.3:3001/api/incidents/assigned/${username}`);
       const incidents = response.data;
       
       console.log('Fetched assigned incidents for user:', username, 'Count:', incidents.length);
@@ -310,7 +310,7 @@ const NavBar: React.FC<NavBarProps> = ({ username, userImage, userRole }) => {
   // Function to handle incident resolution - UPDATED to include resolved_at
   const handleResolveIncident = async (incidentId: number) => {
     try {
-      const response = await axios.put(`http://10.170.82.215:3001/api/incidents/${incidentId}/resolve`, {
+      const response = await axios.put(`http://192.168.100.3:3001/api/incidents/${incidentId}/resolve`, {
         resolved_by: username
       });
 
@@ -520,7 +520,7 @@ const NavBar: React.FC<NavBarProps> = ({ username, userImage, userRole }) => {
           >
             {userImage ? (
               <Image 
-                source={{ uri: `http://10.170.82.215:3001/uploads/${userImage}` }}
+                source={{ uri: `http://192.168.100.3:3001/uploads/${userImage}` }}
                 style={styles.profileImage}
                 onError={() => console.log("Error loading profile image")}
               />
