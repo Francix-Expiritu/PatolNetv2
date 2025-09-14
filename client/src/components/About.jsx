@@ -1,182 +1,241 @@
-import React, { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import './About.css';
 
 const About = () => {
+  const [activeTab, setActiveTab] = useState('mission');
+  const [isVisible, setIsVisible] = useState({});
+
   useEffect(() => {
-    const isInViewport = (element) => {
-      const rect = element.getBoundingClientRect();
-      return (
-        rect.top <= (window.innerHeight || document.documentElement.clientHeight) * 0.8 &&
-        rect.bottom >= 0
-      );
-    };
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setIsVisible(prev => ({
+              ...prev,
+              [entry.target.id]: true
+            }));
+          }
+        });
+      },
+      { threshold: 0.1 }
+    );
 
-    const handleScrollAnimation = () => {
-      const featureBlocks = document.querySelectorAll('.feature-block, .timeline-item');
-      featureBlocks.forEach((block) => {
-        if (isInViewport(block) && !block.classList.contains('animated')) {
-          block.classList.add('animated');
-        }
-      });
-    };
+    document.querySelectorAll('[data-animate]').forEach((el) => {
+      observer.observe(el);
+    });
 
-    handleScrollAnimation();
-    window.addEventListener('scroll', handleScrollAnimation);
-    return () => window.removeEventListener('scroll', handleScrollAnimation);
+    return () => observer.disconnect();
   }, []);
 
+  const stats = [
+    { number: '50K+', label: 'Active Users' },
+    { number: '200+', label: 'Barangays Served' },
+    { number: '99.9%', label: 'Uptime' },
+    { number: '24/7', label: 'Support' }
+  ];
+
+  const features = [
+    {
+      icon: '🚨',
+      title: 'Real-Time Alerts',
+      description: 'Instant notifications keep communities informed and prepared'
+    },
+    {
+      icon: '📱',
+      title: 'Mobile-First Design',
+      description: 'Seamless experience across all devices and platforms'
+    },
+    {
+      icon: '🎯',
+      title: 'Precise Location',
+      description: 'GPS-enabled reporting for accurate incident mapping'
+    },
+    {
+      icon: '🤝',
+      title: 'Community Driven',
+      description: 'Built for barangays, by people who understand communities'
+    }
+  ];
+
   return (
-    <>
-      <section className="about-section">
-        <div className="about-header about-header-background">
-          <h1>About Us</h1>
-          <p>
-            PatrolNet is dedicated to building safer communities by connecting residents and local authorities through
-            instant, efficient, and reliable incident reporting.
-          </p>
-        </div>
-
-        <div className="about-content-wrapper">
-
-        <div className="feature-block">
-          <div className="feature-text">
-            <h2>Instant Incident Reporting for Safer Communities</h2>
-            <p>
-              PatrolNet is a powerful web and mobile application designed to enhance community safety by enabling
-              residents to instantly report accidents and incidents directly to their barangay. With just a few taps,
-              vital information reaches local authorities, allowing them to respond quickly and effectively.
+    <div className="about-container">
+      {/* Hero Section */}
+      <section className="hero-section">
+        <div className="container">
+          <div className="hero-content">
+            <h1 className="hero-title">
+              Building <span className="highlight">Safer</span> Communities
+            </h1>
+            <p className="hero-subtitle">
+              Connecting residents with local authorities through innovative technology
             </p>
-          </div>
-          <div className="feature-image">
-            <div className="image-container">
-              <img src="patrol1.jpg" alt="Instant Notification" />
-              <div className="image-overlay">
-                <h3>Innovation</h3>
-                <p>Real-time alerts</p>
-              </div>
+            <div className="hero-buttons">
+              <button className="btn btn-primary">Get Started</button>
+              <button className="btn btn-secondary">Learn More</button>
             </div>
           </div>
         </div>
-
-        <div className="feature-block reverse">
-          <div className="feature-text">
-            <h2>Designed for Barangays, Powered by Technology</h2>
-            <p>
-              Built with the specific needs of barangays in mind, PatrolNet bridges the gap between grassroots community
-              efforts and modern digital tools.
-            </p>
-          </div>
-          <div className="feature-image">
-            <div className="image-container">
-              <img src="patrol2.jpg" alt="Community Focused" />
-              <div className="image-overlay">
-                <h3>Precision</h3>
-                <p>Localized solutions</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="feature-block">
-          <div className="feature-text">
-            <h2>Empowering Action Through Information</h2>
-            <p>
-              PatrolNet ensures that every report submitted by residents is quickly relayed to the appropriate barangay
-              personnel. The platform streamlines incident handling, increases awareness, and encourages a culture of
-              cooperation.
-            </p>
-          </div>
-          <div className="feature-image">
-            <div className="image-container">
-              <img src="patrol3.jpg" alt="Team at Work" />
-              <div className="image-overlay">
-                <h3>Expertise</h3>
-                <p>Community-driven design</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Modern Timeline for History */}
-        <div className="section-separator"></div>
-        <div className="history-section">
-          <h2>Our History</h2>
-          <div className="timeline">
-            <div className="timeline-item">
-              <div className="timeline-content">
-                <span className="year">2025</span>
-                <p>PatrolNet was launched to address the growing need for faster, tech-driven community safety tools.</p>
-              </div>
-            </div>
-            <div className="timeline-item">
-              <div className="timeline-content">
-                <span className="year">2026</span>
-                <p>First partnerships formed with multiple barangays, leading to improved emergency response rates.</p>
-              </div>
-            </div>
-            <div className="timeline-item">
-              <div className="timeline-content">
-                <span className="year">Today</span>
-                <p>PatrolNet continues to expand, serving communities with cutting-edge solutions for public safety.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Application Showcase Section */}
-        <div className="application-showcase-section">
-          <h2>Application Showcase</h2>
-          <p>Here's a glimpse of the PatrolNet application in action.</p>
-          <div className="showcase-images">
-            <div className="showcase-image">
-              <img src="Alert.png" alt="Application Screenshot 1" />
-              <div className="image-caption">
-                <h3>Real-time Alerts</h3>
-                <p>Receive instant notifications about incidents in your area.</p>
-              </div>
-            </div>
-            <div className="showcase-image">
-              <img src="Alert2.jpg" alt="Application Screenshot 2" />
-              <div className="image-caption">
-                <h3>Detailed Reports</h3>
-                <p>View detailed incident reports with images and locations.</p>
-              </div>
-            </div>
-            <div className="showcase-image">
-              <img src="Alert3.jpg" alt="Application Screenshot 3" />
-              <div className="image-caption">
-                <h3>Easy Navigation</h3>
-                <p>Navigate through the app with a user-friendly interface.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Download App Section */}
-        <div className="download-app-section">
-          <h2>Download the PatrolNet App</h2>
-          <p>Stay connected and report incidents on the go. Download our mobile app for real-time alerts and seamless communication.</p>
-          <a href="#" className="download-btn">Download Now</a>
-        </div>
-      </div>
       </section>
 
-      <footer className="about-footer">
-        <div className="footer-content">
-          <p>&copy; 2025 PatrolNet. All rights reserved.</p>
-          <div className="footer-links">
-            <a href="#privacy">Privacy Policy</a>
-            <a href="#terms">Terms of Service</a>
-            <a href="#contact">Contact Us</a>
-          </div>
-          <div className="social-media">
-            <a href="#facebook" aria-label="Facebook"><i className="fab fa-facebook-f"></i></a>
-            <a href="#twitter" aria-label="Twitter"><i className="fab fa-twitter"></i></a>
-            <a href="#linkedin" aria-label="LinkedIn"><i className="fab fa-linkedin-in"></i></a>
+      {/* Stats Section */}
+      <section className="stats-section" data-animate id="stats">
+        <div className="container">
+          <div className={`stats-grid ${isVisible.stats ? 'visible' : ''}`}>
+            {stats.map((stat, index) => (
+              <div key={index} className="stat-card">
+                <div className="stat-number">{stat.number}</div>
+                <div className="stat-label">{stat.label}</div>
+              </div>
+            ))}
           </div>
         </div>
-      </footer>
-    </>
+      </section>
+
+      {/* Mission Section */}
+      <section className="mission-section">
+        <div className="container">
+          <h2 className="section-title">Our Purpose</h2>
+          
+          <div className="tabs">
+            <div className="tab-nav">
+              {['mission', 'vision', 'values'].map((tab) => (
+                <button
+                  key={tab}
+                  className={`tab-btn ${activeTab === tab ? 'active' : ''}`}
+                  onClick={() => setActiveTab(tab)}
+                >
+                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                </button>
+              ))}
+            </div>
+
+            <div className="tab-content">
+              {activeTab === 'mission' && (
+                <div className="content-panel">
+                  <h3>Our Mission</h3>
+                  <p>To empower communities with cutting-edge technology that enables rapid response to incidents and fosters a culture of collective safety and vigilance.</p>
+                </div>
+              )}
+              
+              {activeTab === 'vision' && (
+                <div className="content-panel">
+                  <h3>Our Vision</h3>
+                  <p>A world where every community is equipped with the tools they need to ensure the safety and well-being of all residents through seamless digital communication.</p>
+                </div>
+              )}
+              
+              {activeTab === 'values' && (
+                <div className="content-panel">
+                  <h3>Our Values</h3>
+                  <div className="values-grid">
+                    <div className="value-item">
+                      <strong>Community First</strong>
+                      <p>Every decision is made with community benefit in mind</p>
+                    </div>
+                    <div className="value-item">
+                      <strong>Innovation</strong>
+                      <p>Continuous improvement through technology</p>
+                    </div>
+                    <div className="value-item">
+                      <strong>Transparency</strong>
+                      <p>Open communication and honest practices</p>
+                    </div>
+                    <div className="value-item">
+                      <strong>Reliability</strong>
+                      <p>Dependable service when it matters most</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Features Section */}
+      <section className="features-section" data-animate id="features">
+        <div className="container">
+          <h2 className="section-title">What Makes Us Different</h2>
+          <div className={`features-grid ${isVisible.features ? 'visible' : ''}`}>
+            {features.map((feature, index) => (
+              <div key={index} className="feature-card">
+                <div className="feature-icon">{feature.icon}</div>
+                <h3 className="feature-title">{feature.title}</h3>
+                <p className="feature-description">{feature.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* App Preview */}
+      <section className="preview-section" data-animate id="preview">
+        <div className="container">
+          <div className="preview-content">
+            <div className="preview-text">
+              <h2>Experience PatrolNet</h2>
+              <p>See how our intuitive interface makes community safety accessible to everyone</p>
+              
+              <div className="feature-list">
+                <div className="feature-item">
+                  <span className="check">✓</span>
+                  <span>One-tap incident reporting</span>
+                </div>
+                <div className="feature-item">
+                  <span className="check">✓</span>
+                  <span>Real-time status updates</span>
+                </div>
+                <div className="feature-item">
+                  <span className="check">✓</span>
+                  <span>Community incident map</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="preview-visual">
+              <div className="phone-mockup">
+                <div className="phone-screen">
+                  <div className="app-header">PatrolNet</div>
+                  <div className="app-content">
+                    <div className="incident-item emergency">
+                      <div className="incident-icon">🚨</div>
+                      <div className="incident-details">
+                        <div className="incident-type">Emergency Alert</div>
+                        <div className="incident-location">Barangay Center</div>
+                      </div>
+                      <div className="status active">Active</div>
+                    </div>
+                    
+                    <div className="incident-item resolved">
+                      <div className="incident-icon">✅</div>
+                      <div className="incident-details">
+                        <div className="incident-type">Traffic Issue</div>
+                        <div className="incident-location">Main Street</div>
+                      </div>
+                      <div className="status resolved">Resolved</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="cta-section">
+        <div className="container">
+          <div className="cta-content">
+            <h2>Ready to Make Your Community Safer?</h2>
+            <p>Join thousands of residents already using PatrolNet to build stronger, safer neighborhoods</p>
+            <div className="cta-buttons">
+              <button className="btn btn-primary">Download App</button>
+              <button className="btn btn-outline">Contact Us</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
   );
 };
 

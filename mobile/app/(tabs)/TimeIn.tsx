@@ -7,11 +7,14 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  ScrollView,
+  Animated,
 } from "react-native";
 import { useRoute, RouteProp, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
 import type { RootStackParamList } from "./app";
+import { BASE_URL } from "../../config";
 
 type TimeInRouteProp = RouteProp<RootStackParamList, "TimeIn">;
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, "TimeIn">;
@@ -38,19 +41,43 @@ interface UserTimeStatus {
   hasTimeOutToday: boolean;
 }
 
-const TimeIn: React.FC = () => {
+const TanodAttendance: React.FC = () => {
   const route = useRoute<TimeInRouteProp>();
   const navigation = useNavigation<NavigationProp>();
   const username = route.params?.username || "";
   
   const [currentTime, setCurrentTime] = useState("");
+  const [currentDate, setCurrentDate] = useState("");
   const [userStatus, setUserStatus] = useState<UserTimeStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [pulseAnim] = useState(new Animated.Value(1));
 
-  // Update current time every second
+  // Pulse animation for active status
   useEffect(() => {
-    const updateTime = () => {
+    const startPulse = () => {
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+      ]).start(() => startPulse());
+    };
+
+    if (userStatus?.hasTimeInToday && !userStatus?.hasTimeOutToday) {
+      startPulse();
+    }
+  }, [userStatus, pulseAnim]);
+
+  // Update current time and date
+  useEffect(() => {
+    const updateDateTime = () => {
       const now = new Date();
       const timeString = now.toLocaleTimeString('en-US', {
         hour12: true,
@@ -58,12 +85,18 @@ const TimeIn: React.FC = () => {
         minute: '2-digit',
         second: '2-digit'
       });
+      const dateString = now.toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
       setCurrentTime(timeString);
+      setCurrentDate(dateString);
     };
 
-    updateTime(); // Initial call
-    const interval = setInterval(updateTime, 1000);
-
+    updateDateTime();
+    const interval = setInterval(updateDateTime, 1000);
     return () => clearInterval(interval);
   }, []);
 
@@ -75,7 +108,7 @@ const TimeIn: React.FC = () => {
   const fetchUserTimeStatus = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`http://192.168.100.3:3001/api/user-time-status/${username}`);
+      const response = await fetch(`${BASE_URL}/api/user-time-status/${username}`);
       const data = await response.json();
       
       if (response.ok) {
@@ -94,23 +127,22 @@ const TimeIn: React.FC = () => {
   const handleTimeRecord = async (action: 'TIME-IN' | 'TIME-OUT') => {
     if (submitting) return;
 
-    // Check if action is allowed based on current status
+    // Validation checks
     if (action === 'TIME-IN' && userStatus?.hasTimeInToday) {
-      Alert.alert("Already Timed In", "You have already timed in today. Please time out first if needed.");
+      Alert.alert("Already On Duty", "You are already on duty today. Please time out first if you need to leave.");
       return;
     }
 
     if (action === 'TIME-OUT' && !userStatus?.hasTimeInToday) {
-      Alert.alert("No Time In Record", "You need to time in first before you can time out.");
+      Alert.alert("Not On Duty", "You need to time in first before you can end your shift.");
       return;
     }
 
     if (action === 'TIME-OUT' && userStatus?.hasTimeOutToday) {
-      Alert.alert("Already Timed Out", "You have already timed out today.");
+      Alert.alert("Shift Ended", "Your shift has already ended for today.");
       return;
     }
 
-    // Show confirmation dialog
     const currentTimeFormatted = new Date().toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit',
@@ -118,25 +150,24 @@ const TimeIn: React.FC = () => {
       hour12: true
     });
 
+    const actionText = action === 'TIME-IN' ? 'start your shift' : 'end your shift';
+    const statusText = action === 'TIME-IN' ? 'ON DUTY' : 'OFF DUTY';
+
     Alert.alert(
-      "Confirm Time Record",
-      `Are you sure you want to record ${action}?\n\nTime: ${currentTimeFormatted}`,
+      `Confirm ${action}`,
+      `Are you sure you want to ${actionText}?\n\nTime: ${currentTimeFormatted}\nStatus will change to: ${statusText}`,
       [
-        {
-          text: "Cancel",
-          style: "cancel"
-        },
+        { text: "Cancel", style: "cancel" },
         {
           text: "Confirm",
+          style: "default",
           onPress: async () => {
             try {
               setSubmitting(true);
               
-              const response = await fetch('http://192.168.100.3:3001/api/time-record', {
+              const response = await fetch(`${BASE_URL}/api/time-record`, {
                 method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   user: username,
                   action: action
@@ -146,18 +177,14 @@ const TimeIn: React.FC = () => {
               const data = await response.json();
 
               if (response.ok) {
+                const successMessage = action === 'TIME-IN' 
+                  ? `Welcome to your shift! You are now ON DUTY as of ${new Date(data.time).toLocaleTimeString()}`
+                  : `Shift ended successfully. You are now OFF DUTY as of ${new Date(data.time).toLocaleTimeString()}`;
+
                 Alert.alert(
                   "Success", 
-                  `${action} recorded successfully at ${new Date(data.time).toLocaleTimeString()}`,
-                  [
-                    {
-                      text: "OK",
-                      onPress: () => {
-                        // Refresh user status after successful time record
-                        fetchUserTimeStatus();
-                      }
-                    }
-                  ]
+                  successMessage,
+                  [{ text: "OK", onPress: () => fetchUserTimeStatus() }]
                 );
               } else {
                 Alert.alert("Error", data.message || `Failed to record ${action}`);
@@ -175,12 +202,12 @@ const TimeIn: React.FC = () => {
   };
 
   const formatScheduleTime = (timeString: string | null) => {
-    if (!timeString) return "No schedule set";
+    if (!timeString) return "No schedule assigned";
     
     try {
       const date = new Date(timeString);
       return date.toLocaleString('en-US', {
-        year: 'numeric',
+        weekday: 'short',
         month: 'short',
         day: 'numeric',
         hour: '2-digit',
@@ -188,7 +215,7 @@ const TimeIn: React.FC = () => {
         hour12: true
       });
     } catch (error) {
-      return "Invalid time format";
+      return "Invalid schedule";
     }
   };
 
@@ -198,7 +225,6 @@ const TimeIn: React.FC = () => {
       return date.toLocaleTimeString('en-US', {
         hour: '2-digit',
         minute: '2-digit',
-        second: '2-digit',
         hour12: true
       });
     } catch (error) {
@@ -206,39 +232,52 @@ const TimeIn: React.FC = () => {
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status?.toLowerCase()) {
-      case 'on duty':
-        return '#28a745';
-      case 'off duty':
-        return '#dc3545';
-      case 'available':
-        return '#17a2b8';
-      default:
-        return '#6c757d';
+  const getStatusInfo = () => {
+    const hasTimeIn = userStatus?.hasTimeInToday;
+    const hasTimeOut = userStatus?.hasTimeOutToday;
+
+    if (hasTimeIn && !hasTimeOut) {
+      return {
+        text: 'ON DUTY',
+        color: '#28a745',
+        bgColor: '#d4edda',
+        icon: 'shield-checkmark' as keyof typeof Ionicons.glyphMap
+      };
+    } else if (hasTimeOut) {
+      return {
+        text: 'SHIFT ENDED',
+        color: '#6c757d',
+        bgColor: '#f8f9fa',
+        icon: 'shield-outline' as keyof typeof Ionicons.glyphMap
+      };
+    } else {
+      return {
+        text: 'OFF DUTY',
+        color: '#dc3545',
+        bgColor: '#f8d7da',
+        icon: 'shield-outline' as keyof typeof Ionicons.glyphMap
+      };
     }
   };
 
   const canTimeIn = !userStatus?.hasTimeInToday;
   const canTimeOut = userStatus?.hasTimeInToday && !userStatus?.hasTimeOutToday;
+  const statusInfo = getStatusInfo();
 
   if (loading) {
     return (
       <View style={styles.container}>
-        <View style={styles.customHeader}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-          >
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
             <Ionicons name="arrow-back" size={24} color="#fff" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Time Tracking</Text>
+          <Text style={styles.headerTitle}>Tanod Attendance</Text>
           <View style={styles.headerPlaceholder} />
         </View>
         
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#007bff" />
-          <Text style={styles.loadingText}>Loading user data...</Text>
+          <Text style={styles.loadingText}>Loading attendance data...</Text>
         </View>
       </View>
     );
@@ -246,152 +285,190 @@ const TimeIn: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      {/* Custom header with back button */}
-      <View style={styles.customHeader}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Time Tracking</Text>
-        <View style={styles.headerPlaceholder} />
+        <Text style={styles.headerTitle}>Tanod Attendance</Text>
+        <TouchableOpacity style={styles.refreshButton} onPress={fetchUserTimeStatus}>
+          <Ionicons name="refresh" size={20} color="#fff" />
+        </TouchableOpacity>
       </View>
-      
-      <View style={styles.content}>
-        {/* Schedule Time Section */}
-        <View style={styles.scheduleSection}>
-          <Text style={styles.scheduleLabel}>Scheduled Time:</Text>
-          <TextInput
-            style={styles.scheduleInput}
-            value={formatScheduleTime(userStatus?.schedule.scheduledTime || null)}
-            editable={false}
-            placeholder="No schedule set"
-          />
+
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Date and Time Display */}
+        <View style={styles.dateTimeCard}>
+          <Text style={styles.dateText}>{currentDate}</Text>
+          <Text style={styles.timeText}>{currentTime}</Text>
         </View>
 
-        {/* Current Time Display */}
-        <View style={styles.currentTimeSection}>
-          <Text style={styles.currentTimeLabel}>Current Time:</Text>
-          <Text style={styles.currentTimeDisplay}>{currentTime}</Text>
-        </View>
-
-        {/* Show existing log entries if they exist */}
-        {userStatus?.logs.timeIn && (
-          <View style={styles.logSection}>
-            <Text style={styles.logTitle}>Today's Records:</Text>
-            <View style={styles.logEntry}>
-              <Ionicons name="log-in" size={16} color="#28a745" />
-              <Text style={styles.logText}>
-                TIME-IN: {formatLogTime(userStatus.logs.timeIn.time)}
+        {/* Status Card */}
+        <Animated.View style={[
+          styles.statusCard,
+          { backgroundColor: statusInfo.bgColor },
+          userStatus?.hasTimeInToday && !userStatus?.hasTimeOutToday && {
+            transform: [{ scale: pulseAnim }]
+          }
+        ]}>
+          <View style={styles.statusHeader}>
+            <Ionicons name={statusInfo.icon} size={28} color={statusInfo.color} />
+            <View style={styles.statusTextContainer}>
+              <Text style={styles.statusLabel}>Current Status</Text>
+              <Text style={[styles.statusText, { color: statusInfo.color }]}>
+                {statusInfo.text}
               </Text>
             </View>
-            {userStatus.logs.timeOut && (
-              <View style={styles.logEntry}>
-                <Ionicons name="log-out" size={16} color="#dc3545" />
-                <Text style={styles.logText}>
-                  TIME-OUT: {formatLogTime(userStatus.logs.timeOut.time)}
-                </Text>
+          </View>
+          
+          {userStatus?.schedule.scheduledTime && (
+            <View style={styles.scheduleInfo}>
+              <Ionicons name="calendar-outline" size={16} color="#666" />
+              <Text style={styles.scheduleText}>
+                Scheduled: {formatScheduleTime(userStatus.schedule.scheduledTime)}
+              </Text>
+            </View>
+          )}
+        </Animated.View>
+
+        {/* Today's Records */}
+        {(userStatus?.logs.timeIn || userStatus?.logs.timeOut) && (
+          <View style={styles.recordsCard}>
+            <Text style={styles.recordsTitle}>Today's Records</Text>
+            
+            {userStatus?.logs.timeIn && (
+              <View style={styles.recordItem}>
+                <View style={styles.recordIcon}>
+                  <Ionicons name="enter-outline" size={20} color="#28a745" />
+                </View>
+                <View style={styles.recordDetails}>
+                  <Text style={styles.recordAction}>TIME IN</Text>
+                  <Text style={styles.recordTime}>
+                    {formatLogTime(userStatus.logs.timeIn.time)}
+                  </Text>
+                </View>
+                <Ionicons name="checkmark-circle" size={20} color="#28a745" />
+              </View>
+            )}
+            
+            {userStatus?.logs.timeOut && (
+              <View style={styles.recordItem}>
+                <View style={styles.recordIcon}>
+                  <Ionicons name="exit-outline" size={20} color="#dc3545" />
+                </View>
+                <View style={styles.recordDetails}>
+                  <Text style={styles.recordAction}>TIME OUT</Text>
+                  <Text style={styles.recordTime}>
+                    {formatLogTime(userStatus.logs.timeOut.time)}
+                  </Text>
+                </View>
+                <Ionicons name="checkmark-circle" size={20} color="#dc3545" />
               </View>
             )}
           </View>
         )}
 
-        {/* TIME-IN Section */}
-        <View style={styles.section}>
-          <Text style={styles.label}>TIME-IN:</Text>
-          <View style={styles.inputContainer}>
-            <TextInput
-              style={[
-                styles.timeInput, 
-                !canTimeIn && styles.timeInputDisabled
-              ]}
-              value={canTimeIn ? currentTime : "Already timed in"}
-              editable={false}
-              placeholder={canTimeIn ? "Ready to time in" : "Already timed in today"}
-            />
-            <TouchableOpacity
-              style={[
-                styles.submitButton,
-                canTimeIn ? styles.submitButtonEnabled : styles.submitButtonDisabled
-              ]}
-              onPress={() => handleTimeRecord('TIME-IN')}
-              disabled={!canTimeIn || submitting}
-            >
+        {/* Action Buttons */}
+        <View style={styles.actionSection}>
+          {/* Time In Button */}
+          <TouchableOpacity
+            style={[
+              styles.actionButton,
+              styles.timeInButton,
+              !canTimeIn && styles.actionButtonDisabled
+            ]}
+            onPress={() => handleTimeRecord('TIME-IN')}
+            disabled={!canTimeIn || submitting}
+          >
+            <View style={styles.actionButtonContent}>
               {submitting ? (
                 <ActivityIndicator size="small" color="#fff" />
               ) : (
                 <>
                   <Ionicons 
-                    name={canTimeIn ? "log-in" : "checkmark-circle"} 
-                    size={20} 
+                    name={canTimeIn ? "enter-outline" : "checkmark-circle"} 
+                    size={24} 
                     color={canTimeIn ? "#fff" : "#28a745"} 
                   />
                   <Text style={[
-                    styles.submitButtonText,
-                    !canTimeIn && styles.submitButtonTextDisabled
+                    styles.actionButtonText,
+                    !canTimeIn && styles.actionButtonTextDisabled
                   ]}>
-                    {canTimeIn ? "TIME-IN" : "DONE"}
+                    {canTimeIn ? "START SHIFT" : "ALREADY ON DUTY"}
+                  </Text>
+                  <Text style={[
+                    styles.actionButtonSubtext,
+                    !canTimeIn && styles.actionButtonTextDisabled
+                  ]}>
+                    {canTimeIn ? "Tap to begin your duty" : "Shift has started"}
                   </Text>
                 </>
               )}
-            </TouchableOpacity>
-          </View>
-        </View>
+            </View>
+          </TouchableOpacity>
 
-        {/* TIME-OUT Section */}
-        <View style={styles.section}>
-          <Text style={styles.label}>TIME-OUT:</Text>
-          <View style={styles.inputContainer}>
-            <TextInput
-              style={[
-                styles.timeInput,
-                !canTimeOut && styles.timeInputDisabled
-              ]}
-              value={canTimeOut ? currentTime : userStatus?.hasTimeOutToday ? "Already timed out" : "Time in first"}
-              editable={false}
-              placeholder={canTimeOut ? "Ready to time out" : "Time in required first"}
-            />
-            <TouchableOpacity
-              style={[
-                styles.submitButton,
-                canTimeOut ? styles.submitButtonTimeOut : styles.submitButtonDisabled
-              ]}
-              onPress={() => handleTimeRecord('TIME-OUT')}
-              disabled={!canTimeOut || submitting}
-            >
+          {/* Time Out Button */}
+          <TouchableOpacity
+            style={[
+              styles.actionButton,
+              styles.timeOutButton,
+              !canTimeOut && styles.actionButtonDisabled
+            ]}
+            onPress={() => handleTimeRecord('TIME-OUT')}
+            disabled={!canTimeOut || submitting}
+          >
+            <View style={styles.actionButtonContent}>
               {submitting ? (
                 <ActivityIndicator size="small" color="#fff" />
               ) : (
                 <>
                   <Ionicons 
-                    name={canTimeOut ? "log-out" : userStatus?.hasTimeOutToday ? "checkmark-circle" : "close-circle"} 
-                    size={20} 
+                    name={canTimeOut ? "exit-outline" : userStatus?.hasTimeOutToday ? "checkmark-circle" : "close-circle"} 
+                    size={24} 
                     color={canTimeOut ? "#fff" : userStatus?.hasTimeOutToday ? "#28a745" : "#dc3545"} 
                   />
                   <Text style={[
-                    styles.submitButtonText,
-                    !canTimeOut && styles.submitButtonTextDisabled
+                    styles.actionButtonText,
+                    !canTimeOut && styles.actionButtonTextDisabled
                   ]}>
-                    {canTimeOut ? "TIME-OUT" : userStatus?.hasTimeOutToday ? "DONE" : "N/A"}
+                    {canTimeOut ? "END SHIFT" : userStatus?.hasTimeOutToday ? "SHIFT ENDED" : "NOT AVAILABLE"}
+                  </Text>
+                  <Text style={[
+                    styles.actionButtonSubtext,
+                    !canTimeOut && styles.actionButtonTextDisabled
+                  ]}>
+                    {canTimeOut ? "Tap to end your duty" : 
+                     userStatus?.hasTimeOutToday ? "Duty completed" : "Time in first"}
                   </Text>
                 </>
               )}
-            </TouchableOpacity>
-          </View>
+            </View>
+          </TouchableOpacity>
         </View>
 
-        {/* Status Display */}
-        <View style={styles.statusSection}>
-          <Text style={styles.statusLabel}>Current Status:</Text>
-          <Text style={[
-            styles.statusText, 
-            { color: getStatusColor(userStatus?.schedule.status || 'Off Duty') }
-          ]}>
-            {userStatus?.schedule.status || 'Off Duty'}
-          </Text>
+        {/* Instructions */}
+        <View style={styles.instructionsCard}>
+          <Text style={styles.instructionsTitle}>Instructions</Text>
+          <View style={styles.instructionItem}>
+            <Ionicons name="information-circle" size={16} color="#007bff" />
+            <Text style={styles.instructionText}>
+              Tap "START SHIFT" when you begin your duty
+            </Text>
+          </View>
+          <View style={styles.instructionItem}>
+            <Ionicons name="information-circle" size={16} color="#007bff" />
+            <Text style={styles.instructionText}>
+              Tap "END SHIFT" when your duty is complete
+            </Text>
+          </View>
+          <View style={styles.instructionItem}>
+            <Ionicons name="information-circle" size={16} color="#007bff" />
+            <Text style={styles.instructionText}>
+              Your attendance is automatically recorded
+            </Text>
+          </View>
         </View>
-      </View>
+      </ScrollView>
     </View>
   );
 };
@@ -399,27 +476,29 @@ const TimeIn: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#f8f9fa",
   },
-  // Custom header styles
-  customHeader: {
+  header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
     paddingTop: 60,
-    backgroundColor: "#555",
-    paddingBottom: 10,
+    paddingBottom: 15,
+    backgroundColor: "#2c3e50",
   },
   backButton: {
     padding: 5,
   },
   headerTitle: {
+    fontSize: 20,
     fontWeight: "bold",
-    fontSize: 18,
     color: "#fff",
     flex: 1,
     textAlign: "center",
+  },
+  refreshButton: {
+    padding: 5,
   },
   headerPlaceholder: {
     width: 34,
@@ -430,161 +509,192 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   loadingText: {
-    marginTop: 10,
+    marginTop: 15,
     fontSize: 16,
     color: "#666",
   },
   content: {
     flex: 1,
     padding: 20,
-    paddingTop: 20,
   },
-  scheduleSection: {
-    marginBottom: 20,
-  },
-  scheduleLabel: {
-    fontSize: 16,
-    fontWeight: "bold",
-    marginBottom: 8,
-    color: "#333",
-  },
-  scheduleInput: {
-    backgroundColor: "#e9ecef",
-    borderWidth: 1,
-    borderColor: "#ced4da",
-    borderRadius: 8,
-    paddingHorizontal: 15,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: "#6c757d",
-    fontWeight: "500",
-  },
-  currentTimeSection: {
-    marginBottom: 20,
-    alignItems: "center",
-  },
-  currentTimeLabel: {
-    fontSize: 16,
-    color: "#666",
-    marginBottom: 5,
-  },
-  currentTimeDisplay: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#007bff",
-  },
-  logSection: {
+  dateTimeCard: {
     backgroundColor: "#fff",
-    borderRadius: 8,
-    padding: 15,
+    borderRadius: 15,
+    padding: 20,
     marginBottom: 20,
-    borderLeftWidth: 4,
-    borderLeftColor: "#007bff",
-  },
-  logTitle: {
-    fontSize: 16,
-    fontWeight: "bold",
-    marginBottom: 10,
-    color: "#333",
-  },
-  logEntry: {
-    flexDirection: "row",
     alignItems: "center",
-    marginBottom: 5,
-  },
-  logText: {
-    marginLeft: 8,
-    fontSize: 14,
-    color: "#333",
-  },
-  section: {
-    marginBottom: 25,
-  },
-  label: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 10,
-    color: "#333",
-  },
-  inputContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 15,
-  },
-  timeInput: {
-    flex: 1,
-    backgroundColor: "#fff",
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 8,
-    paddingHorizontal: 15,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: "#333",
     shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  timeInputDisabled: {
-    backgroundColor: "#f8f8f8",
-    color: "#999",
-  },
-  submitButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 8,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 3,
   },
-  submitButtonEnabled: {
-    backgroundColor: "#007bff",
-  },
-  submitButtonTimeOut: {
-    backgroundColor: "#dc3545",
-  },
-  submitButtonDisabled: {
-    backgroundColor: "#e9ecef",
-    shadowOpacity: 0,
-    elevation: 0,
-  },
-  submitButtonText: {
-    color: "#fff",
-    fontWeight: "bold",
-    fontSize: 14,
-  },
-  submitButtonTextDisabled: {
-    color: "#6c757d",
-  },
-  statusSection: {
-    backgroundColor: "#fff",
-    borderRadius: 8,
-    padding: 15,
-    alignItems: "center",
-    marginTop: 10,
-  },
-  statusLabel: {
+  dateText: {
     fontSize: 16,
     color: "#666",
     marginBottom: 5,
   },
+  timeText: {
+    fontSize: 28,
+    fontWeight: "bold",
+    color: "#2c3e50",
+  },
+  statusCard: {
+    borderRadius: 15,
+    padding: 20,
+    marginBottom: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  statusHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  statusTextContainer: {
+    marginLeft: 15,
+    flex: 1,
+  },
+  statusLabel: {
+    fontSize: 14,
+    color: "#666",
+    marginBottom: 2,
+  },
   statusText: {
+    fontSize: 20,
+    fontWeight: "bold",
+  },
+  scheduleInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(0,0,0,0.1)",
+  },
+  scheduleText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: "#666",
+  },
+  recordsCard: {
+    backgroundColor: "#fff",
+    borderRadius: 15,
+    padding: 20,
+    marginBottom: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  recordsTitle: {
     fontSize: 18,
     fontWeight: "bold",
+    color: "#2c3e50",
+    marginBottom: 15,
+  },
+  recordItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f1f1f1",
+  },
+  recordIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#f8f9fa",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 15,
+  },
+  recordDetails: {
+    flex: 1,
+  },
+  recordAction: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#2c3e50",
+  },
+  recordTime: {
+    fontSize: 14,
+    color: "#666",
+    marginTop: 2,
+  },
+  actionSection: {
+    marginBottom: 20,
+  },
+  actionButton: {
+    borderRadius: 15,
+    marginBottom: 15,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  timeInButton: {
+    backgroundColor: "#28a745",
+  },
+  timeOutButton: {
+    backgroundColor: "#dc3545",
+  },
+  actionButtonDisabled: {
+    backgroundColor: "#e9ecef",
+    shadowOpacity: 0,
+    elevation: 1,
+  },
+  actionButtonContent: {
+    padding: 20,
+    alignItems: "center",
+  },
+  actionButtonText: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "bold",
+    marginTop: 8,
+  },
+  actionButtonSubtext: {
+    color: "#fff",
+    fontSize: 14,
+    opacity: 0.9,
+    marginTop: 4,
+  },
+  actionButtonTextDisabled: {
+    color: "#6c757d",
+  },
+  instructionsCard: {
+    backgroundColor: "#fff",
+    borderRadius: 15,
+    padding: 20,
+    marginBottom: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  instructionsTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#2c3e50",
+    marginBottom: 15,
+  },
+  instructionItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  instructionText: {
+    marginLeft: 10,
+    fontSize: 14,
+    color: "#666",
+    flex: 1,
   },
 });
 
-export default TimeIn;
+export default TanodAttendance;

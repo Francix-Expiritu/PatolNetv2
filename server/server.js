@@ -67,6 +67,23 @@ function getGMT8Time() {
   return gmt8Time.toISOString().slice(0, 19).replace('T', ' ');
 }
 
+// Helper function to generate a unique 4-digit incident ID
+function generateUniqueIncidentId(callback) {
+  const newId = Math.floor(1000 + Math.random() * 9000);
+  const sql = "SELECT id FROM incident_report WHERE id = ?";
+  db.query(sql, [newId], (err, results) => {
+    if (err) {
+      return callback(err, null);
+    }
+    if (results.length > 0) {
+      // ID exists, try again
+      return generateUniqueIncidentId(callback);
+    }
+    // ID is unique
+    callback(null, newId);
+  });
+}
+
 // Updated Login route with client-based role restrictions
 app.post("/login", (req, res) => {
   console.log("Login attempt received.");
@@ -183,17 +200,24 @@ app.post("/sos-report", (req, res) => {
   const incidentType = "SOS";
   const status = "New"; // Or "Emergency"
 
-  const sql = `
-    INSERT INTO incident_report (incident_type, latitude, longitude, datetime, reported_by, status, location)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `;
-
-  db.query(sql, [incidentType, latitude, longitude, currentTime, username, status, location], (err, result) => {
+  generateUniqueIncidentId((err, incidentId) => {
     if (err) {
-      console.error("❌ SQL error inserting SOS report:", err);
-      return res.status(500).json({ success: false, message: "Database error while saving SOS report" });
+      console.error("❌ Error generating unique incident ID:", err);
+      return res.status(500).json({ error: "Failed to generate unique incident ID" });
     }
-    res.json({ success: true, message: "SOS report received and saved", id: result.insertId });
+
+    const sql = `
+      INSERT INTO incident_report (id, incident_type, latitude, longitude, datetime, reported_by, status, location)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+
+    db.query(sql, [incidentId, incidentType, latitude, longitude, currentTime, username, status, location], (err, result) => {
+      if (err) {
+        console.error("❌ SQL error inserting SOS report:", err);
+        return res.status(500).json({ success: false, message: "Database error while saving SOS report" });
+      }
+      res.json({ success: true, message: "SOS report received and saved", id: incidentId });
+    });
   });
 });
 
@@ -204,6 +228,18 @@ app.get("/api/users", (req, res) => {
     if (err) {
       console.error("❌ SQL error:", err);
       return res.status(500).json({ error: "Failed to fetch users" });
+    }
+    res.json(results);
+  });
+});
+
+// API endpoint to fetch all registered and verified Tanods
+app.get("/api/tanods", (req, res) => {
+  const sql = "SELECT ID, USER, NAME, EMAIL, ADDRESS, ROLE, STATUS, IMAGE FROM users WHERE ROLE = 'Tanod' AND STATUS = 'Verified'";
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error("❌ SQL error fetching tanods:", err);
+      return res.status(500).json({ error: "Failed to fetch tanods" });
     }
     res.json(results);
   });
@@ -551,33 +587,74 @@ app.post("/api/incidents", upload.single("image"), (req, res) => {
     return res.status(400).json({ error: "Invalid coordinates" });
   }
   const status = "Under Review";
-  console.log("Received incident report:", {
-    incidentType,
-    latitude: latNum,
-    longitude: lonNum,
-    datetime,
-    address,
-    reported_by,
-    image,
-  });
 
-  const sql = `
-    INSERT INTO incident_report (incident_type, latitude, longitude, datetime, image, location, status, reported_by)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `;
-
-  db.query(
-    sql,
-    [incidentType, latNum, lonNum, datetime, image, address, status, reported_by],
-    (err, result) => {
-      if (err) {
-        console.error("❌ SQL insert error:", err);
-        return res.status(500).json({ error: "Failed to insert incident" });
-      }
-
-      res.json({ success: true, message: "Incident reported", id: result.insertId });
+  generateUniqueIncidentId((err, incidentId) => {
+    if (err) {
+      console.error("❌ Error generating unique incident ID:", err);
+      return res.status(500).json({ error: "Failed to generate unique incident ID" });
     }
-  );
+
+    console.log("Received incident report:", {
+      id: incidentId,
+      incidentType,
+      latitude: latNum,
+      longitude: lonNum,
+      datetime,
+      address,
+      reported_by,
+      image,
+    });
+
+    const sql = `
+      INSERT INTO incident_report (id, incident_type, latitude, longitude, datetime, image, location, status, reported_by)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+
+    db.query(
+      sql,
+      [incidentId, incidentType, latNum, lonNum, datetime, image, address, status, reported_by],
+      (err, result) => {
+        if (err) {
+          console.error("❌ SQL insert error:", err);
+          return res.status(500).json({ error: "Failed to insert incident" });
+        }
+
+        res.json({ success: true, message: "Incident reported", id: incidentId });
+
+        // After successfully inserting the incident, notify all Tanod accounts
+        const getTanodsSql = "SELECT USER FROM users WHERE ROLE = 'Tanod' AND STATUS = 'Verified'";
+        db.query(getTanodsSql, (tanodErr, tanodResults) => {
+          if (tanodErr) {
+            console.error("❌ SQL error fetching Tanods for notification:", tanodErr);
+            // Continue without sending notifications if there's an error fetching Tanods
+            return;
+          }
+
+          if (tanodResults.length > 0) {
+            const notificationTime = getGMT8Time();
+            const notificationAction = `New Incident Reported by ${reported_by} at ${address} - Type: ${incidentType}`;
+            const notificationLocation = address;
+
+            tanodResults.forEach(tanod => {
+              const insertLogSql = `
+                INSERT INTO logs_patrol (USER, TIME, ACTION, LOCATION)
+                VALUES (?, ?, ?, ?)
+              `;
+              db.query(insertLogSql, [tanod.USER, notificationTime, notificationAction, notificationLocation], (logErr) => {
+                if (logErr) {
+                  console.error(`❌ SQL error inserting notification for Tanod ${tanod.USER}:`, logErr);
+                } else {
+                  console.log(`✅ Notification sent to Tanod ${tanod.USER} for incident ${incidentId}`);
+                }
+              });
+            });
+          } else {
+            console.log("No verified Tanod accounts found to notify.");
+          }
+        });
+      }
+    );
+  });
 });
 
 // Update incident status by ID
@@ -1096,7 +1173,7 @@ app.post("/pre-register-verify-code", (req, res) => {
 
 // API endpoint to create a new schedule entry
 app.post("/api/schedules", (req, res) => {
-  const { user, time } = req.body; // Removed status from destructuring
+  const { user, time, location } = req.body; // Added location from destructuring
   
   if (!user) {
     return res.status(400).json({ success: false, message: "User is required" });
@@ -1118,10 +1195,10 @@ app.post("/api/schedules", (req, res) => {
     const userId = userResults[0].ID;
     const userImage = userResults[0].IMAGE;
     
-    // Check if this user already has a schedule entry
-    const checkExistsSQL = "SELECT ID FROM schedules WHERE USER = ?";
+    // Check if this user already has a schedule entry using user_id
+    const checkExistsSQL = "SELECT ID FROM schedules WHERE user_id = ?";
     
-    db.query(checkExistsSQL, [user], (checkErr, checkResults) => {
+    db.query(checkExistsSQL, [userId], (checkErr, checkResults) => {
       if (checkErr) {
         console.error("❌ SQL error checking schedule:", checkErr);
         return res.status(500).json({ success: false, message: "Database error" });
@@ -1131,15 +1208,15 @@ app.post("/api/schedules", (req, res) => {
         return res.status(409).json({ success: false, message: "User already has a schedule entry" });
       }
       
-      // Insert the new schedule entry WITHOUT STATUS
+      // Insert the new schedule entry with user_id, and let ID auto-increment
       const insertSQL = `
-        INSERT INTO schedules (ID, USER, TIME, IMAGE)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO schedules (user_id, USER, STATUS, TIME, LOCATION, IMAGE)
+        VALUES (?, ?, ?, ?, ?, ?)
       `;
       
       db.query(
         insertSQL, 
-        [userId, user, time || getGMT8Time(), userImage], 
+        [userId, user, 'Off Duty', time || getGMT8Time(), location || null, userImage], // Default status to 'Off Duty'
         (insertErr, result) => {
           if (insertErr) {
             console.error("❌ SQL insert error:", insertErr);
@@ -1334,6 +1411,11 @@ app.put("/api/schedules/:id", (req, res) => {
     updates.push(" TIME = ?");
     params.push(time);
   }
+
+  if (location !== undefined) {
+    updates.push(" LOCATION = ?");
+    params.push(location);
+  }
   
   if (updates.length === 0) {
     return res.status(400).json({ success: false, message: "No fields to update" });
@@ -1356,18 +1438,30 @@ app.put("/api/schedules/:id", (req, res) => {
     
     // If time is being updated, also save to logs table with the SELECTED time (not current time)
     if (time !== undefined) {
-      const logSql = `
-        INSERT INTO logs (USER, TIME, LOCATION, ACTION)
-        SELECT USER, ?, ?, 'NEW SCHEDULE'
-        FROM schedules 
-        WHERE ID = ?
-      `;
-      
-      db.query(logSql, [time, location || 'Not specified', scheduleId], (logErr) => {
-        if (logErr) {
-          console.error("❌ Error saving to logs:", logErr);
-          // Don't fail the main update, just log the error
+      // First, get the USER from the schedules table using scheduleId
+      const getUserFromScheduleSql = "SELECT USER FROM schedules WHERE ID = ?";
+      db.query(getUserFromScheduleSql, [scheduleId], (getUserErr, userResult) => {
+        if (getUserErr) {
+          console.error("❌ Error fetching user for log entry:", getUserErr);
+          return; // Don't fail the main update, just skip logging
         }
+        if (userResult.length === 0) {
+          console.warn("User not found in schedules for logging schedule update.");
+          return;
+        }
+        const userForLog = userResult[0].USER;
+
+        const logSql = `
+          INSERT INTO logs (USER, TIME, LOCATION, ACTION)
+          VALUES (?, ?, ?, 'NEW SCHEDULE')
+        `;
+
+        db.query(logSql, [userForLog, time, location || 'Not specified'], (logErr) => {
+          if (logErr) {
+            console.error("❌ Error saving to logs:", logErr);
+            // Don't fail the main update, just log the error
+          }
+        });
       });
     }
     
@@ -1446,7 +1540,7 @@ app.delete("/api/schedules/:id", (req, res) => {
 
 // API endpoint to fetch all schedules with IMAGE included
 app.get("/api/schedules", (req, res) => {
-  const sql = "SELECT * FROM schedules";
+  const sql = "SELECT ID, user_id, USER, STATUS, LOCATION, TIME, IMAGE FROM schedules"; // Explicitly select columns
   db.query(sql, (err, results) => {
     if (err) {
       console.error("❌ SQL error:", err);
@@ -1470,7 +1564,7 @@ app.get("/api/user-time-status/:username", async (req, res) => {
     const today = currentTime.slice(0, 10); // Get date part (YYYY-MM-DD)
     // Get user's schedule information
     const schedule = await new Promise((resolve, reject) => {
-      const sql = "SELECT * FROM schedules WHERE USER = ?";
+      const sql = "SELECT ID, user_id, USER, STATUS, LOCATION, TIME, IMAGE FROM schedules WHERE USER = ?"; // Explicitly select columns
       db.query(sql, [username], (err, results) => {
         if (err) reject(err);
         else resolve(results[0]);
@@ -1478,7 +1572,20 @@ app.get("/api/user-time-status/:username", async (req, res) => {
     });
 
     if (!schedule) {
-      return res.status(404).json({ error: "No schedule found for user" });
+      // If no schedule is found, return a default status (e.g., "Off Duty")
+      // and indicate that no schedule was found.
+      return res.json({
+        success: true,
+        schedule: null,
+        logs: null,
+        currentTime: currentTime,
+        hasTimeInToday: false,
+        hasTimeOutToday: false,
+        hasValidTime: false,
+        mostRecentLogTime: null,
+        calculatedStatus: 'Off Duty',
+        message: "No schedule found for user"
+      });
     }
     // Get today's log entry
     const todayLog = await new Promise((resolve, reject) => {
@@ -1992,6 +2099,62 @@ app.get("/api/logs_patrol", (req, res) => {
   });
 });
 
+// Count endpoints
+app.get("/api/schedules/count", (req, res) => {
+  const sql = "SELECT COUNT(*) as count FROM schedules";
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error("❌ SQL error:", err);
+      return res.status(500).json({ error: "Failed to fetch schedules count" });
+    }
+    res.json(results[0]);
+  });
+});
+
+app.get("/api/gis/count", (req, res) => {
+  const sql = "SELECT COUNT(*) as count FROM incident_report";
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error("❌ SQL error:", err);
+      return res.status(500).json({ error: "Failed to fetch gis count" });
+    }
+    res.json(results[0]);
+  });
+});
+
+app.get("/api/patrollogs/count", (req, res) => {
+  const sql = "SELECT COUNT(*) as count FROM logs_patrol";
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error("❌ SQL error:", err);
+      return res.status(500).json({ error: "Failed to fetch patrol logs count" });
+    }
+    res.json(results[0]);
+  });
+});
+
+app.get("/api/activities/count", (req, res) => {
+  const sql = "SELECT COUNT(*) as count FROM activities";
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error("❌ SQL error:", err);
+      return res.status(500).json({ error: "Failed to fetch activities count" });
+    }
+    res.json(results[0]);
+  });
+});
+
+app.get("/api/accounts/count", (req, res) => {
+  const sql = "SELECT COUNT(*) as count FROM users";
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error("❌ SQL error:", err);
+      return res.status(500).json({ error: "Failed to fetch accounts count" });
+    }
+    res.json(results[0]);
+  });
+});
+
 // API endpoint to receive contact messages
 app.post("/api/contact-messages", (req, res) => {
   const { name, email, subject, message } = req.body;
@@ -2119,6 +2282,37 @@ app.delete("/api/contact-messages/:id", (req, res) => {
     }
 
     res.json({ success: true, message: "Contact message deleted successfully" });
+  });
+});
+
+// API endpoint to fetch all tourist spots
+app.get("/api/tourist-spots", (req, res) => {
+  const sql = "SELECT * FROM tourist_spots ORDER BY id DESC";
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error("❌ SQL error fetching tourist spots:", err);
+      return res.status(500).json({ error: "Failed to fetch tourist spots" });
+    }
+    res.json(results);
+  });
+});
+
+// API endpoint to add a new tourist spot
+app.post("/api/tourist-spots", upload.single("image"), (req, res) => {
+  const { name, description, location } = req.body;
+  const image = req.file ? req.file.filename : null;
+
+  if (!name || !description || !location) {
+    return res.status(400).json({ success: false, message: "Name, description, and location are required" });
+  }
+
+  const sql = "INSERT INTO tourist_spots (name, description, location, image) VALUES (?, ?, ?, ?)";
+  db.query(sql, [name, description, location, image], (err, result) => {
+    if (err) {
+      console.error("❌ SQL error adding tourist spot:", err);
+      return res.status(500).json({ success: false, message: "Failed to add tourist spot" });
+    }
+    res.json({ success: true, message: "Tourist spot added successfully", id: result.insertId });
   });
 });
 

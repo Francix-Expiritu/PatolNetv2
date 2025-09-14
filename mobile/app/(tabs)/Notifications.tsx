@@ -1,4 +1,3 @@
-
 // Notifications.tsx - Displays user logs separated into new and viewed notifications
 import React, { useState, useEffect } from "react";
 import {
@@ -17,6 +16,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "./app";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { BASE_URL } from "../../config";
 
 type NotificationsRouteProp = RouteProp<RootStackParamList, "Notifications"> & {
   params: {
@@ -51,6 +51,8 @@ interface IncidentReport {
 const Notifications: React.FC = () => {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [viewedNotifications, setViewedNotifications] = useState<number[]>([]);
+  const [patrolLogs, setPatrolLogs] = useState<LogEntry[]>([]);
+  const [viewedPatrolLogs, setViewedPatrolLogs] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   
@@ -124,15 +126,53 @@ const Notifications: React.FC = () => {
     }
   };
 
+  // Load viewed patrol logs from AsyncStorage
+  const loadViewedPatrolLogs = async () => {
+    try {
+      const viewed = await AsyncStorage.getItem(`viewed_patrol_logs_${username}`);
+      if (viewed) {
+        setViewedPatrolLogs(JSON.parse(viewed));
+      }
+    } catch (error) {
+      console.error("Error loading viewed patrol logs:", error);
+    }
+  };
+
+  // Save viewed patrol logs to AsyncStorage
+  const saveViewedPatrolLogs = async (viewedIds: number[]) => {
+    try {
+      await AsyncStorage.setItem(
+        `viewed_patrol_logs_${username}`,
+        JSON.stringify(viewedIds)
+      );
+    } catch (error) {
+      console.error("Error saving viewed patrol logs:", error);
+    }
+  };
+
   // Fetch user logs from API
   const fetchLogs = async () => {
     try {
-      const response = await axios.get(`http://192.168.100.3:3001/api/logs/${username}`);
+      const response = await axios.get(`${BASE_URL}/api/logs/${username}`);
       setLogs(response.data || []);
       console.log(`Fetched ${response.data?.length || 0} logs for ${username}`);
     } catch (error) {
       console.error("Error fetching logs:", error);
       Alert.alert("Error", "Failed to load notifications");
+    }
+  };
+
+  // Fetch patrol logs from API
+  const fetchPatrolLogs = async () => {
+    try {
+      const response = await axios.get(`${BASE_URL}/api/logs_patrol`);
+      const allPatrolLogs: LogEntry[] = response.data || [];
+      // Filter logs relevant to the current user (Tanod)
+      const userPatrolLogs = allPatrolLogs.filter(log => log.USER === username);
+      setPatrolLogs(userPatrolLogs);
+      console.log(`Fetched ${userPatrolLogs.length} patrol logs for ${username}`);
+    } catch (error) {
+      console.error("Error fetching patrol logs:", error);
     }
   };
 
@@ -187,7 +227,7 @@ const Notifications: React.FC = () => {
   // Fetch assigned incidents
   const fetchAssignedIncidents = async () => {
     try {
-      const response = await axios.get(`http://192.168.100.3:3001/api/incidents/assigned/${username}`);
+      const response = await axios.get(`${BASE_URL}/api/incidents/assigned/${username}`);
       const fetchedIncidents = response.data || [];
       setAssignedIncidents(fetchedIncidents);
       
@@ -214,7 +254,7 @@ const Notifications: React.FC = () => {
   // Fetch reported incidents
   const fetchReportedIncidents = async () => {
     try {
-      const response = await axios.get(`http://192.168.100.3:3001/api/incidents/reported/${username}`);
+      const response = await axios.get(`${BASE_URL}/api/incidents/reported/${username}`);
       const fetchedIncidents = response.data || [];
       setReportedIncidents(fetchedIncidents);
       
@@ -229,10 +269,12 @@ const Notifications: React.FC = () => {
     const loadData = async () => {
       setLoading(true);
       await loadViewedNotifications();
+      await loadViewedPatrolLogs(); // Load viewed patrol logs
       await loadViewedAssignedIncidents();
       await loadViewedReportedIncidents();
       await loadUserRole();
       await fetchLogs();
+      await fetchPatrolLogs(); // Fetch patrol logs
       await fetchAssignedIncidents();
       await fetchReportedIncidents();
       
@@ -264,10 +306,20 @@ const Notifications: React.FC = () => {
     }
   };
 
+  // Mark patrol log as viewed
+  const markPatrolLogAsViewed = async (logId: number) => {
+    if (!viewedPatrolLogs.includes(logId)) {
+      const newViewedIds = [...viewedPatrolLogs, logId];
+      setViewedPatrolLogs(newViewedIds);
+      await saveViewedPatrolLogs(newViewedIds);
+    }
+  };
+
   // Refresh function
   const onRefresh = async () => {
     setRefreshing(true);
     await fetchLogs();
+    await fetchPatrolLogs(); // Fetch patrol logs on refresh
     await fetchAssignedIncidents();
     await fetchReportedIncidents();
     setRefreshing(false);
@@ -287,14 +339,17 @@ const Notifications: React.FC = () => {
     const allLogIds = logs.map(log => log.ID);
     const allAssignedIds = assignedIncidents.map(incident => incident.id);
     const allReportedIds = reportedIncidents.map(incident => incident.id);
+    const allPatrolLogIds = patrolLogs.map(log => log.ID); // Get all patrol log IDs
     
     setViewedNotifications(allLogIds);
     setViewedAssignedIncidents(allAssignedIds);
     setViewedReportedIncidents(allReportedIds);
+    setViewedPatrolLogs(allPatrolLogIds); // Mark all patrol logs as viewed
     
     await saveViewedNotifications(allLogIds);
     await saveViewedAssignedIncidents(allAssignedIds);
     await saveViewedReportedIncidents(allReportedIds);
+    await saveViewedPatrolLogs(allPatrolLogIds); // Save viewed patrol logs
   };
 
   // Clear all viewed
@@ -308,9 +363,11 @@ const Notifications: React.FC = () => {
           text: "Clear",
           onPress: async () => {
             setViewedNotifications([]);
+            setViewedPatrolLogs([]); // Clear viewed patrol logs
             setViewedAssignedIncidents([]);
             setViewedReportedIncidents([]);
             await saveViewedNotifications([]);
+            await saveViewedPatrolLogs([]); // Save cleared patrol logs
             await saveViewedAssignedIncidents([]);
             await saveViewedReportedIncidents([]);
           },
@@ -322,7 +379,7 @@ const Notifications: React.FC = () => {
   // Function to resolve incident (for assigned incidents only)
   const resolveIncident = async (incidentId: number) => {
     try {
-      await axios.put(`http://192.168.100.3:3001/api/incidents/${incidentId}/resolve`, {
+      await axios.put(`${BASE_URL}/api/incidents/${incidentId}/resolve`, {
         resolved_by: username
       });
       
@@ -385,7 +442,7 @@ Status: ${incident.status}${incident.resolved_by ? `\nResolved By: ${incident.re
 
       const resolveReportedIncident = async (incidentId: number) => {
         try {
-          await axios.put(`http://192.168.100.3:3001/api/incidents/${incidentId}/resolve`, {
+          await axios.put(`${BASE_URL}/api/incidents/${incidentId}/resolve`, {
             resolved_by: username
           });
           
@@ -411,7 +468,7 @@ Status: ${incident.status}${incident.resolved_by ? `\nResolved By: ${incident.re
 // Add this function after the existing resolveReportedIncident function
 const resolveReportedIncidentAsAdmin = async (incidentId: number) => {
   try {
-    await axios.put(`http://192.168.100.3:3001/api/incidents/${incidentId}/resolve`, {
+    await axios.put(`${BASE_URL}/api/incidents/${incidentId}/resolve`, {
       resolved_by: 'Admin'
     });
     
@@ -506,7 +563,7 @@ Resolved By: ${incident.resolved_by}` : ''}`;
     return (
       <TouchableOpacity
         key={`assigned_${incident.id}`}
-        style={[
+        style={[ 
           styles.notificationItem,
           isNew ? styles.newNotification : styles.viewedNotification,
           resolvedByCurrentUser && styles.resolvedByMeNotification,
@@ -520,13 +577,13 @@ Resolved By: ${incident.resolved_by}` : ''}`;
         <View style={styles.notificationHeader}>
           <View style={styles.notificationIcon}>
             <Ionicons 
-              name={isResolved ? "checkmark-circle" : (isNew ? "alert-circle" : "alert-circle-outline")} 
+              name={isResolved ? "checkmark-circle" : (isNew ? "alert-circle" : "alert-circle-outline")}
               size={20} 
               color={isResolved ? "#4CAF50" : (isNew ? "#FF5722" : (isUnresolvedButViewed ? "#FF9800" : "#666"))} 
             />
           </View>
           <View style={styles.notificationContent}>
-            <Text style={[
+            <Text style={[ 
               styles.notificationTitle, 
               isNew && styles.newIncidentTitle,
               isUnresolvedButViewed && styles.unresolvedViewedTitle
@@ -540,7 +597,7 @@ Resolved By: ${incident.resolved_by}` : ''}`;
               <Ionicons name="location-sharp" size={14} color="#FF9800" style={{ marginRight: 4 }} />
               <Text style={styles.notificationLocation}>{incident.location}</Text>
             </View>
-            <Text style={[
+            <Text style={[ 
               styles.notificationLocation,
               isResolved && { color: "#4CAF50", fontWeight: "bold" },
               isUnresolvedButViewed && { color: "#FF9800", fontWeight: "bold" }
@@ -578,7 +635,7 @@ Resolved By: ${incident.resolved_by}` : ''}`;
     return (
       <TouchableOpacity
         key={`reported_${incident.id}`}
-        style={[
+        style={[ 
           styles.notificationItem,
           isNew ? styles.newReportedNotification : styles.viewedNotification,
           isUnresolvedButViewed && styles.unresolvedViewedNotification
@@ -591,13 +648,13 @@ Resolved By: ${incident.resolved_by}` : ''}`;
         <View style={styles.notificationHeader}>
           <View style={styles.notificationIcon}>
             <Ionicons 
-              name={isResolved ? "checkmark-circle" : (isNew ? "document-text" : "document-text-outline")} 
+              name={isResolved ? "checkmark-circle" : (isNew ? "document-text" : "document-text-outline")}
               size={20} 
               color={isResolved ? "#4CAF50" : (isNew ? "#2196F3" : (isUnresolvedButViewed ? "#FF9800" : "#666"))} 
             />
           </View>
           <View style={styles.notificationContent}>
-            <Text style={[
+            <Text style={[ 
               styles.notificationTitle, 
               isNew && styles.newReportedTitle,
               isUnresolvedButViewed && styles.unresolvedViewedTitle
@@ -611,7 +668,7 @@ Resolved By: ${incident.resolved_by}` : ''}`;
               <Ionicons name="location-sharp" size={14} color="#2196F3" style={{ marginRight: 4 }} />
               <Text style={styles.notificationLocation}>{incident.location}</Text>
             </View>
-            <Text style={[
+            <Text style={[ 
                 styles.notificationLocation,
                 isResolved && { color: "#4CAF50", fontWeight: "bold" },
                 isUnresolvedButViewed && { color: "#FF9800", fontWeight: "bold" }
@@ -674,6 +731,24 @@ Resolved By: ${incident.resolved_by}` : ''}`;
   const newNotifications = logs.filter(log => !viewedNotifications.includes(log.ID));
   const viewedNotificationsList = logs.filter(log => viewedNotifications.includes(log.ID));
 
+  // Helper function to format patrol log display text
+  const getPatrolLogDisplayText = (log: LogEntry) => {
+    const date = new Date(log.TIME).toLocaleDateString();
+    const time = new Date(log.TIME).toLocaleTimeString();
+    const action = log.ACTION || 'Incident Report';
+
+    return {
+      date,
+      time,
+      action,
+      location: log.LOCATION || null
+    };
+  };
+
+  // Separate patrol logs into new and viewed
+  const newPatrolLogs = patrolLogs.filter(log => !viewedPatrolLogs.includes(log.ID));
+  const viewedPatrolLogsList = patrolLogs.filter(log => viewedPatrolLogs.includes(log.ID));
+
   // Render notification item
   const renderNotificationItem = (log: LogEntry, isNew: boolean) => {
     const logDisplay = getLogDisplayText(log);
@@ -681,7 +756,7 @@ Resolved By: ${incident.resolved_by}` : ''}`;
     return (
       <TouchableOpacity
         key={log.ID}
-        style={[
+        style={[ 
           styles.notificationItem,
           isNew ? styles.newNotification : styles.viewedNotification
         ]}
@@ -714,6 +789,46 @@ Resolved By: ${incident.resolved_by}` : ''}`;
     );
   };
 
+  // Render patrol log item
+  const renderPatrolLogItem = (log: LogEntry, isNew: boolean) => {
+    const logDisplay = getPatrolLogDisplayText(log);
+
+    return (
+      <TouchableOpacity
+        key={`patrol_${log.ID}`}
+        style={[ 
+          styles.notificationItem,
+          isNew ? styles.newIncidentReportNotification : styles.viewedNotification
+        ]}
+        onPress={() => markPatrolLogAsViewed(log.ID)}
+      >
+        <View style={styles.notificationHeader}>
+          <View style={styles.notificationIcon}>
+            <Ionicons
+              name={isNew ? "alert-circle" : "alert-circle-outline"}
+              size={20}
+              color={isNew ? "#FF5722" : "#666"}
+            />
+          </View>
+          <View style={styles.notificationContent}>
+            <Text style={[styles.notificationTitle, isNew && styles.newIncidentReportTitle]}>
+              🚨 {logDisplay.action}
+            </Text>
+            <Text style={styles.notificationDate}>
+              {logDisplay.date} at {logDisplay.time}
+            </Text>
+            {logDisplay.location && (
+              <Text style={styles.notificationLocation}>
+                📍 {logDisplay.location}
+              </Text>
+            )}
+          </View>
+          {isNew && <View style={styles.newIncidentReportBadge} />}
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
   if (loading) {
     return (
       <View style={styles.container}>
@@ -733,15 +848,17 @@ Resolved By: ${incident.resolved_by}` : ''}`;
   }
 
   // Calculate totals
-  const totalNewNotifications = newNotifications.length + 
-    assignedCategorized.newIncidents.length + 
-    reportedCategorized.newIncidents.length;
+  const totalNewNotifications = newNotifications.length +
+    assignedCategorized.newIncidents.length +
+    reportedCategorized.newIncidents.length +
+    newPatrolLogs.length; // Include new patrol logs
   
-  const totalViewedNotifications = viewedNotificationsList.length + 
-    assignedCategorized.viewedUnresolved.length + 
+  const totalViewedNotifications = viewedNotificationsList.length +
+    assignedCategorized.viewedUnresolved.length +
     assignedCategorized.resolved.length +
-    reportedCategorized.viewedUnresolved.length + 
-    reportedCategorized.resolved.length;
+    reportedCategorized.viewedUnresolved.length +
+    reportedCategorized.resolved.length +
+    viewedPatrolLogsList.length; // Include viewed patrol logs
 
   return (
     <View style={styles.container}>
@@ -780,7 +897,7 @@ Resolved By: ${incident.resolved_by}` : ''}`;
           </Text>
         </View>
 
-        {logs.length === 0 && assignedIncidents.length === 0 && reportedIncidents.length === 0 ? (
+        {logs.length === 0 && assignedIncidents.length === 0 && reportedIncidents.length === 0 && patrolLogs.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Ionicons name="notifications-off-outline" size={64} color="#ccc" />
             <Text style={styles.emptyText}>No notifications yet</Text>
@@ -790,6 +907,16 @@ Resolved By: ${incident.resolved_by}` : ''}`;
           </View>
         ) : (
           <>
+            {/* New Incident Reports for Tanods */}
+            {newPatrolLogs.length > 0 && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>
+                  🚨 New Incident Reports ({newPatrolLogs.length})
+                </Text>
+                {newPatrolLogs.map(log => renderPatrolLogItem(log, true))}
+              </View>
+            )}
+
             {/* New Assigned Incidents */}
             {assignedCategorized.newIncidents.length > 0 && (
               <View style={styles.section}>
@@ -826,6 +953,9 @@ Resolved By: ${incident.resolved_by}` : ''}`;
                 <Text style={styles.sectionTitle}>
                   Earlier ({totalViewedNotifications})
                 </Text>
+                {/* Viewed patrol logs */}
+                {viewedPatrolLogsList.map(log => renderPatrolLogItem(log, false))}
+
                 {/* Viewed unresolved assigned incidents (priority) */}
                 {assignedCategorized.viewedUnresolved.map(incident => renderAssignedIncidentItem(incident, false))}
                 
@@ -1060,6 +1190,24 @@ newReportedBadge: {
   height: 8,
   borderRadius: 4,
   backgroundColor: "#2196F3",
+  marginTop: 5,
+},
+
+// New styles for incident report notifications
+newIncidentReportNotification: {
+  backgroundColor: "#ffebee", // Light red background
+  borderLeftWidth: 4,
+  borderLeftColor: "#D32F2F", // Red border
+},
+newIncidentReportTitle: {
+  fontWeight: "bold",
+  color: "#C62828", // Darker red text
+},
+newIncidentReportBadge: {
+  width: 8,
+  height: 8,
+  borderRadius: 4,
+  backgroundColor: "#D32F2F", // Red badge
   marginTop: 5,
 },
 });

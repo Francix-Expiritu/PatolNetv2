@@ -121,21 +121,7 @@ export default function Activities() {
         </div>
       </div>
 
-      <footer className="activities-footer">
-        <div className="footer-content">
-          <p>&copy; 2025 PatrolNet. All rights reserved.</p>
-          <div className="footer-links">
-            <a href="#privacy">Privacy Policy</a>
-            <a href="#terms">Terms of Service</a>
-            <a href="#contact">Contact Us</a>
-          </div>
-          <div className="social-media">
-            <a href="#facebook" aria-label="Facebook"><i className="fab fa-facebook-f"></i></a>
-            <a href="#twitter" aria-label="Twitter"><i className="fab fa-twitter"></i></a>
-            <a href="#linkedin" aria-label="LinkedIn"><i className="fab fa-linkedin-in"></i></a>
-          </div>
-        </div>
-      </footer>
+    
     </>
   );
 }

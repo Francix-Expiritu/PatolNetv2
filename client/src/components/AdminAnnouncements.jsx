@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Plus, Edit2, Trash2, Calendar, FileText, Image, X, Save, Loader } from "lucide-react";
 import "./AdminAnnouncements.css"; // Assuming you'll create this CSS file
-import Navbar from './Sidebar';
+import MainSidebarWrapper from './MainSidebarWrapper';
 import { BASE_URL } from '../config';
 
 function AdminAnnouncements() {
@@ -139,7 +139,7 @@ function AdminAnnouncements() {
 
   return (
     <div className="admin-announcements-container">
-      <Navbar/>
+      <MainSidebarWrapper/>
       {/* Header */}
       <div className="header1">
         <div className="header-content">

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import Navbar from './Sidebar';
+import MainSidebarWrapper from './MainSidebarWrapper';
 import EditScheduleModal from './Modals/EditScheduleModal';
 import './ScheduleAssignment.css'; // Import the CSS file
 import { BASE_URL } from '../config';
@@ -13,9 +13,6 @@ const ScheduleAssignment = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [syncMessage, setSyncMessage] = useState('');
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
 
   // Base URL for your backend
   
@@ -80,20 +77,31 @@ const ScheduleAssignment = () => {
     try {
       setIsLoading(true);
 
-      // Start API request
-      const scheduleResponse = await axios.get(`${BASE_URL}/api/schedules`);
+      // Start API requests
+      const tanodResponse = await axios.get(`${BASE_URL}/api/tanods`);
+      const schedulesResponse = await axios.get(`${BASE_URL}/api/schedules`);
 
-      if (scheduleResponse.data && Array.isArray(scheduleResponse.data)) {
-        console.log("Loaded schedules:", scheduleResponse.data);
+      if (tanodResponse.data && Array.isArray(tanodResponse.data)) {
+        console.log("Loaded tanods:", tanodResponse.data);
+        console.log("Loaded schedules:", schedulesResponse.data);
+
+        const allSchedules = schedulesResponse.data || [];
 
         // Calculate status and get log times for each personnel
         const personnelWithCalculatedData = await Promise.all(
-          scheduleResponse.data.map(async (person) => {
+          tanodResponse.data.map(async (person) => {
+            // Find the schedule for this person
+            const personSchedule = allSchedules.find(schedule => schedule.USER === person.USER);
+
             const calculatedStatus = await calculateStatusFromLogs(person.USER);
             const logData = await getMostRecentLogTime(person.USER);
 
             return {
               ...person,
+              // Add schedule-specific data if found
+              SCHEDULE_ID: personSchedule?.ID || null,
+              SCHEDULE_TIME: personSchedule?.TIME || null,
+              SCHEDULE_LOCATION: personSchedule?.LOCATION || null,
               CALCULATED_STATUS: calculatedStatus,
               LOG_TIME: logData?.time || null,
               LOG_LOCATION: logData?.location || null // Add log location
@@ -103,7 +111,7 @@ const ScheduleAssignment = () => {
 
         setPersonnel(personnelWithCalculatedData);
       } else {
-        console.log("No schedules found or invalid data format");
+        console.log("No tanods found or invalid data format");
         setPersonnel([]);
       }
 
@@ -112,40 +120,6 @@ const ScheduleAssignment = () => {
       console.error('Error loading tanod schedules:', err);
       setError('Failed to load tanod schedules. Please try again later.');
       setIsLoading(false);
-    }
-  };
-
-  // Function to sync tanods from users table
-  const syncTanodsFromUsers = async () => {
-    try {
-      setIsLoading(true);
-
-      // Start API request
-      const response = await axios.post(`${BASE_URL}/api/sync-tanods`);
-
-      if (response.data.success) {
-        setSuccessMessage(response.data.message);
-        setShowSuccessModal(true);
-        await loadSchedules();
-      } else {
-        setSyncMessage('❌ Sync failed. Please try again.');
-        setError('Failed to sync tanods from users table.');
-      }
-
-      setIsLoading(false);
-
-      // Clear sync message after 5s
-      setTimeout(() => {
-        setSyncMessage('');
-      }, 5000);
-
-      return response.data;
-    } catch (err) {
-      console.error('Error syncing tanods:', err);
-      setError('An error occurred while syncing the tanods from users table.');
-      setIsLoading(false);
-      setSyncMessage('');
-      return { success: false, message: err.message };
     }
   };
 
@@ -165,8 +139,8 @@ const ScheduleAssignment = () => {
     setSelectedPerson(person);
     setFormData({
       status: person.CALCULATED_STATUS || '',
-      location: person.LOG_LOCATION || person.LOCATION || '',
-      time: person.TIME || ''
+      location: person.SCHEDULE_LOCATION || '',
+      time: person.SCHEDULE_TIME || ''
     });
     setShowModal(true);
   };
@@ -178,10 +152,21 @@ const ScheduleAssignment = () => {
 
   const handleSave = async () => {
     try {
-      const response = await axios.put(`${BASE_URL}/api/schedules/${selectedPerson.ID}`, {
-        location: formData.location,
-        time: formData.time
-      });
+      let response;
+      if (selectedPerson.SCHEDULE_ID) {
+        // Update existing schedule
+        response = await axios.put(`${BASE_URL}/api/schedules/${selectedPerson.SCHEDULE_ID}`, {
+          location: formData.location,
+          time: formData.time
+        });
+      } else {
+        // Create new schedule
+        response = await axios.post(`${BASE_URL}/api/schedules`, {
+          user: selectedPerson.USER,
+          location: formData.location,
+          time: formData.time
+        });
+      }
 
       if (response.data.success) {
         await loadSchedules();
@@ -241,7 +226,7 @@ const ScheduleAssignment = () => {
 
   return (
     <div className="schedule-assignment-container">
-      <Navbar />
+      <MainSidebarWrapper />
 
       {/* Main Content */}
       <div className="main-content">
@@ -290,13 +275,6 @@ const ScheduleAssignment = () => {
             </div>
             <div className="action-buttons">
               <button
-                className="btn btn-primary"
-                onClick={syncTanodsFromUsers}
-                disabled={isLoading}
-              >
-                {isLoading ? 'Syncing...' : 'Sync Tanods'}
-              </button>
-              <button
                 className="btn btn-secondary"
                 onClick={loadSchedules}
                 disabled={isLoading}
@@ -341,10 +319,10 @@ const ScheduleAssignment = () => {
                         </span>
                       </td>
                       <td>
-                        {person.LOG_LOCATION || "Not assigned"}
+                        {person.SCHEDULE_LOCATION || "Not assigned"}
                       </td>
                       <td>
-                        {formatDateTime(person.TIME) || "Not scheduled"}
+                        {formatDateTime(person.SCHEDULE_TIME) || "Not scheduled"}
                       </td>
                       <td className="actions-cell">
                         <button
@@ -374,7 +352,7 @@ const ScheduleAssignment = () => {
                 ) : (
                   <tr>
                     <td colSpan="6" className="no-data">
-                      No tanods found. Click "Sync Tanods" to fetch tanods from the users database.
+                      No tanods found.
                     </td>
                   </tr>
                 )}
@@ -383,48 +361,7 @@ const ScheduleAssignment = () => {
           </div>
         </div>
       </div>
-      <SuccessModal isOpen={showSuccessModal} onClose={() => setShowSuccessModal(false)} message={successMessage} />
-    </div>
-  );
-};
-
-const SuccessModal = ({ isOpen, onClose, message }) => {
-  if (!isOpen) return null;
-
-  return (
-    <div className="success-modal-overlay">
-      <div className="success-modal">
-        {/* Red header stripe */}
-        <div className="modal-header-stripe"></div>
-        
-        <div className="modal-content">
-          <div className="modal-body">
-            {/* Icon with red theme */}
-            <div className="success-icon">
-              <svg width="40" height="40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7"></path>
-              </svg>
-            </div>
-
-            {/* Title */}
-            <h3 className="modal-title">Success!</h3>
-
-            {/* Message */}
-            <p className="modal-message">
-              {message || "Operation completed successfully!"}
-            </p>
-
-            {/* Button with red theme */}
-            <button
-              onClick={onClose}
-              className="btn btn-modal-close"
-            >
-              Got it!
-            </button>
-          </div>
-        </div>
       </div>
-    </div>
   );
 };
 

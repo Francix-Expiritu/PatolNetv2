@@ -18,6 +18,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import * as ImagePicker from "expo-image-picker";
 import { Ionicons } from "@expo/vector-icons";
 import type { RootStackParamList } from "./app"; // Adjust path if needed
+import { BASE_URL } from "../../config";
 
 type ProfileRouteProp = RouteProp<RootStackParamList, "Profile">;
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
@@ -60,7 +61,7 @@ const Profile: React.FC = () => {
   const fetchUserData = async () => {
     setLoading(true);
     try {
-      const response = await axios.get(`http://192.168.100.3:3001/api/user/${username}`);
+      const response = await axios.get(`${BASE_URL}/api/user/${username}`);
       
       if (response.data) {
         setUserData(response.data);
@@ -69,7 +70,7 @@ const Profile: React.FC = () => {
         setFormName(response.data.NAME || "");
         setFormEmail(response.data.EMAIL || "");
         setFormAddress(response.data.ADDRESS || "");
-        setImage(response.data.IMAGE ? `http://192.168.100.3:3001/uploads/${response.data.IMAGE}` : null);
+        setImage(response.data.IMAGE ? `${BASE_URL}/uploads/${response.data.IMAGE}` : null);
       }
     } catch (error) {
       console.error("Error fetching user data:", error);
@@ -122,7 +123,7 @@ const Profile: React.FC = () => {
       
       // Update user
       const response = await axios.put(
-        `http://192.168.100.3:3001/api/users/${userData?.ID}`,
+        `${BASE_URL}/api/users/${userData?.ID}`,
         formData,
         {
           headers: { "Content-Type": "multipart/form-data" },

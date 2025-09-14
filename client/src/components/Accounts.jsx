@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BASE_URL } from '../config';
 
 import './Accounts.css';
-import Navbar from './Sidebar'; 
+import MainSidebarWrapper from './MainSidebarWrapper'; 
 import AddAccountModal from './Modals/AddAccountModal'; // Import the new modal component
 import EditAccountModal from './Modals/EditAccountModal';
 
@@ -158,7 +158,7 @@ const handleEditAccount = async (e) => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Replace the hardcoded header with the Navbar component */}
-      <Navbar />
+      <MainSidebarWrapper />
 
       <main className="py-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

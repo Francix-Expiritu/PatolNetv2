@@ -1,5 +1,6 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
+import './ConfirmationModal.css';
 
 function ConfirmationModal({ 
   showModal, 
@@ -12,13 +13,14 @@ function ConfirmationModal({
   message = "Are you sure you want to mark this incident as resolved?",
   confirmText = "Confirm",
   confirmStyle = {},
-  showResolvedBy = true
+  showResolvedBy = true,
+  dialogClassName = ''
 }) {
   if (!showModal || !selectedIncident) return null;
 
   return createPortal(
     <div className="modal-overlay" onClick={onClose}>
-      <div className="confirmation-dialog" onClick={(e) => e.stopPropagation()}>
+      <div className={`confirmation-dialog ${dialogClassName}`} onClick={(e) => e.stopPropagation()}>
         <div className="confirmation-header">
           <h3>{title}</h3>
           <button className="modal-close" onClick={onClose}>×</button>

@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { MapPin, RefreshCw, AlertTriangle, Activity, Shield, Flame, Car, Filter, BarChart3, Clock, User, Calendar, MapPinIcon } from 'lucide-react';
-import Navbar from './Sidebar';
+import MainSidebarWrapper from './MainSidebarWrapper';
 import { BASE_URL } from '../config';
 
 // Fix for default markers in react-leaflet
@@ -21,22 +21,31 @@ const getIncidentIcon = (type) => {
     'Accident': '🚗',
     'Crime': '🚨',
     'Emergency': '🚑',
+    'Drowing people': '🆘',
+    'Electrical Circuit': '⚡',
+    'Figthing person': '🥊',
     'Other': '⚠️'
   };
   return icons[type] || icons['Other'];
 };
 
+const getIncidentColor = (incidentType) => {
+    const colors = {
+        'Fire': '#ff4444',
+        'Accident': '#ff8800',
+        'Crime': '#8800ff',
+        'Emergency': '#ff0088',
+        'Drowing people': '#00aaff',
+        'Electrical Circuit': '#ffee00',
+        'Figthing person': '#ff0000',
+        'Other': '#0088ff'
+    };
+    return colors[incidentType] || colors['Other'];
+};
+
 // Custom icons for different incident types with modern design
 const createCustomIcon = (incidentType) => {
-  const colors = {
-    'Fire': '#ff4444',
-    'Accident': '#ff8800',
-    'Crime': '#8800ff',
-    'Emergency': '#ff0088',
-    'Other': '#0088ff'
-  };
-  
-  const color = colors[incidentType] || colors['Other'];
+  const color = getIncidentColor(incidentType);
   const icon = getIncidentIcon(incidentType);
   
   return L.divIcon({
@@ -445,7 +454,7 @@ function GISMapping({ showOnlyMap }) {
     <div style={styles.container}>
       <style>{popupStyles}</style>
       
-      {!showOnlyMap && <Navbar />}
+      {!showOnlyMap && <MainSidebarWrapper />}
 
       {/* Header */}
       {!showOnlyMap && (
@@ -545,22 +554,12 @@ function GISMapping({ showOnlyMap }) {
                 <MapPinIcon size={18} />
                 Legend
               </h3>
-              {['Fire', 'Accident', 'Crime', 'Emergency', 'Other'].map(type => (
+              {['Fire', 'Accident', 'Crime', 'Emergency', 'Drowing people', 'Electrical Circuit', 'Figthing person', 'Other'].map(type => (
                 <div key={type} style={styles.legendItem}>
                   <div 
                     style={{
                       ...styles.legendIcon,
-                      background: `linear-gradient(135deg, ${
-                        type === 'Fire' ? '#ff4444' :
-                        type === 'Accident' ? '#ff8800' :
-                        type === 'Crime' ? '#8800ff' :
-                        type === 'Emergency' ? '#ff0088' : '#0088ff'
-                      }, ${
-                        type === 'Fire' ? '#ff4444dd' :
-                        type === 'Accident' ? '#ff8800dd' :
-                        type === 'Crime' ? '#8800ffdd' :
-                        type === 'Emergency' ? '#ff0088dd' : '#0088ffdd'
-                      })`
+                      background: `linear-gradient(135deg, ${getIncidentColor(type)}, ${getIncidentColor(type)}dd)`
                     }}
                   >
                     {getIncidentIcon(type)}
@@ -624,17 +623,7 @@ function GISMapping({ showOnlyMap }) {
             ...styles.legendIcon,
             width: '32px',
             height: '32px',
-            background: `linear-gradient(135deg, ${
-              incident.incident_type === 'Fire' ? '#ff4444' :
-              incident.incident_type === 'Accident' ? '#ff8800' :
-              incident.incident_type === 'Crime' ? '#8800ff' :
-              incident.incident_type === 'Emergency' ? '#ff0088' : '#0088ff'
-            }, ${
-              incident.incident_type === 'Fire' ? '#ff4444dd' :
-              incident.incident_type === 'Accident' ? '#ff8800dd' :
-              incident.incident_type === 'Crime' ? '#8800ffdd' :
-              incident.incident_type === 'Emergency' ? '#ff0088dd' : '#0088ffdd'
-            })`
+            background: `linear-gradient(135deg, ${getIncidentColor(incident.incident_type)}, ${getIncidentColor(incident.incident_type)}dd)`
           }}>
             {getIncidentIcon(incident.incident_type)}
           </div>

@@ -16,7 +16,7 @@ body {
 /* Main Container */
 .admin-activities-container {
   min-height: 100vh;
-  background: linear-gradient(135deg, #f8fafc 0%, #dbeafe 50%, #e0e7ff 100%);
+  background: linear-gradient(135deg, #ffffff 0%, #ffffff 50%, #ffffff 100%);
 }
 
 /* Header */
@@ -198,10 +198,9 @@ body {
 
 .form-input:focus {
   outline: none;
-  ring: 2px solid #3b82f6;
   border-color: transparent;
   background: white;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  box-shadow: 0 0 0 2px #3b82f6, 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 .form-textarea {
@@ -218,10 +217,9 @@ body {
 
 .form-textarea:focus {
   outline: none;
-  ring: 2px solid #3b82f6;
   border-color: transparent;
   background: white;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  box-shadow: 0 0 0 2px #3b82f6, 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 /* File Upload */
@@ -446,6 +444,7 @@ body {
   margin-bottom: 0.5rem;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -469,6 +468,7 @@ body {
   line-height: 1.6;
   display: -webkit-box;
   -webkit-line-clamp: 3;
+  line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
   margin-bottom: 1.5rem;
@@ -584,6 +584,7 @@ body {
 .line-clamp-2 {
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -591,6 +592,7 @@ body {
 .line-clamp-3 {
   display: -webkit-box;
   -webkit-line-clamp: 3;
+  line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }

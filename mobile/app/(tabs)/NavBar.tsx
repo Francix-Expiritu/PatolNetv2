@@ -1,3 +1,4 @@
+import { BASE_URL } from "../../config";
 // components/NavBar.tsx - Fixed incident notification system
 import React, { useState, useRef, useEffect } from "react";
 import {
@@ -121,13 +122,13 @@ const NavBar: React.FC<NavBarProps> = ({ username, userImage, userRole }) => {
     if (!username) return;
     
     try {
-      const response = await axios.get(`http://192.168.100.3:3001/api/logs/${username}`);
+      const response = await axios.get(`${BASE_URL}/api/logs/${username}`);
       const logs = response.data;
       
       console.log('Fetched logs for user:', username, 'Count:', logs.length);
       
       if (logs && logs.length > 0) {
-        const latestLog = logs[0]; // Most recent log (ordered by TIME DESC)
+        const latestLog = logs[0]; // Most recent log (ordered by TIME DESC) 
         
         console.log('Latest log ID:', latestLog.ID, 'Last known ID:', lastLogId);
         
@@ -173,7 +174,7 @@ const NavBar: React.FC<NavBarProps> = ({ username, userImage, userRole }) => {
     if (!username) return;
     
     try {
-      const response = await axios.get(`http://192.168.100.3:3001/api/incidents/assigned/${username}`);
+      const response = await axios.get(`${BASE_URL}/api/incidents/assigned/${username}`);
       const incidents = response.data;
       
       console.log('Fetched assigned incidents for user:', username, 'Count:', incidents.length);
@@ -310,7 +311,7 @@ const NavBar: React.FC<NavBarProps> = ({ username, userImage, userRole }) => {
   // Function to handle incident resolution - UPDATED to include resolved_at
   const handleResolveIncident = async (incidentId: number) => {
     try {
-      const response = await axios.put(`http://192.168.100.3:3001/api/incidents/${incidentId}/resolve`, {
+      const response = await axios.put(`${BASE_URL}/api/incidents/${incidentId}/resolve`, {
         resolved_by: username
       });
 
@@ -325,7 +326,7 @@ const NavBar: React.FC<NavBarProps> = ({ username, userImage, userRole }) => {
         setIncidentNotifications(prev => 
           prev.map(incident => 
             incident.id === incidentId 
-              ? { ...incident, status: 'Resolved', resolved_by: username }
+              ? { ...incident, status: 'Resolved', resolved_by: username } 
               : incident
           )
         );
@@ -379,7 +380,7 @@ const NavBar: React.FC<NavBarProps> = ({ username, userImage, userRole }) => {
               "Are you sure you want to mark this incident as resolved?",
               [
                 { text: "Cancel", style: "cancel" },
-                { 
+                {
                   text: "Confirm", 
                   onPress: () => handleResolveIncident(incident.id),
                   style: "destructive"
@@ -403,7 +404,7 @@ const NavBar: React.FC<NavBarProps> = ({ username, userImage, userRole }) => {
       const interval = setInterval(() => {
         fetchUserLogs();
         fetchAssignedIncidents(); // Poll for incident assignments
-      }, 10000); // Check every 10 seconds (reduced from 15 seconds)
+      }, 10000); // Check every 10 seconds (reduced from 15 seconds) 
       
       return () => {
         console.log('Cleaning up polling interval');
@@ -520,7 +521,7 @@ const NavBar: React.FC<NavBarProps> = ({ username, userImage, userRole }) => {
           >
             {userImage ? (
               <Image 
-                source={{ uri: `http://192.168.100.3:3001/uploads/${userImage}` }}
+                source={{ uri: `${BASE_URL}/uploads/${userImage}` }}
                 style={styles.profileImage}
                 onError={() => console.log("Error loading profile image")}
               />

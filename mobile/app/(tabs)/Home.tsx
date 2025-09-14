@@ -3,7 +3,8 @@ import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Alert, Platform,Image} from "react-native";
 import { useRoute, RouteProp, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import axios from "axios";
+import axios from 'axios';
+import { BASE_URL } from '../../config';
 // Import Call functionality
 import { Linking } from "react-native";
 
@@ -46,7 +47,7 @@ const Home: React.FC = () => {
   
   const fetchUserData = async () => {
     try {
-      const response = await axios.get(`http://192.168.100.3:3001/api/user/${username}`);
+      const response = await axios.get(`${BASE_URL}/api/user/${username}`);
       
       if (response.data) {
         setUserData(response.data);
@@ -95,6 +96,8 @@ const Home: React.FC = () => {
   
   return (
      <View style={styles.container}>
+        {/* Temporary hidden Text component to address BASE_URL warning */}
+        <Text style={{ display: 'none' }}>{BASE_URL}</Text>
 
         <NavBar 
       username={username} 
@@ -140,19 +143,35 @@ const Home: React.FC = () => {
         </View>
       </View>
       
-      <TouchableOpacity
-        style={styles.reportButton}
-        onPress={() => navigation.navigate("IncidentReport", { username })}
-        activeOpacity={0.8}
-      >
-        <View style={styles.buttonContent}>
-          <Text style={styles.buttonIcon}>📋</Text>
-          <View style={styles.buttonTextContainer}>
-            <Text style={styles.reportButtonText}>REPORT INCIDENT</Text>
-            <Text style={styles.buttonSubtext}>Document safety concerns</Text>
+      {userData?.ROLE === "Tanod" ? (
+        <TouchableOpacity
+          style={styles.reportButton} // Reusing reportButton style for now
+          onPress={() => navigation.navigate("TimeIn", { username })} // Navigate to TimeIn for Tanod
+          activeOpacity={0.8}
+        >
+          <View style={styles.buttonContent}>
+            <Text style={styles.buttonIcon}>⏰</Text> {/* Clock emoji for attendance */}
+            <View style={styles.buttonTextContainer}>
+              <Text style={styles.reportButtonText}>ATTENDANCE</Text>
+              <Text style={styles.buttonSubtext}>Manage your shifts</Text>
+            </View>
           </View>
-        </View>
-      </TouchableOpacity>
+        </TouchableOpacity>
+      ) : (
+        <TouchableOpacity
+          style={styles.reportButton}
+          onPress={() => navigation.navigate("IncidentReport", { username })}
+          activeOpacity={0.8}
+        >
+          <View style={styles.buttonContent}>
+            <Text style={styles.buttonIcon}>📋</Text>
+            <View style={styles.buttonTextContainer}>
+              <Text style={styles.reportButtonText}>REPORT INCIDENT</Text>
+              <Text style={styles.buttonSubtext}>Document safety concerns</Text>
+            </View>
+          </View>
+        </TouchableOpacity>
+      )}
 
       <TouchableOpacity
         style={styles.emergencyButton}

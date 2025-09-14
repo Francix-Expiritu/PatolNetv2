@@ -16,6 +16,7 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Picker } from "@react-native-picker/picker";
 import * as Location from "expo-location";
 import { Ionicons } from "@expo/vector-icons";
+import { BASE_URL } from "../../config";
 
 type RootStackParamList = {
   Login: undefined;
@@ -90,7 +91,7 @@ const Register: React.FC = () => {
 
     setLoading(true);
     try {
-      const response = await axios.post("http://192.168.100.3:3001/register", {
+      const response = await axios.post(`${BASE_URL}/register`, {
         username,
         password,
         role,

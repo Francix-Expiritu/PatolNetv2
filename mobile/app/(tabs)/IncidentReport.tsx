@@ -20,8 +20,10 @@ import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "./app";
 import { Ionicons, Feather } from "@expo/vector-icons";
+import { Picker } from '@react-native-picker/picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from "axios";
+import { BASE_URL } from "../../config";
 
 const screenWidth = Dimensions.get("window").width;
 
@@ -66,7 +68,8 @@ const IncidentReport: React.FC = () => {
   const isViewMode = route.params?.isViewMode ?? false; // Add this to determine if viewing existing
 
   // Form states
-  const [incidentType, setIncidentType] = useState("");
+  const [incidentType, setIncidentType] = useState("Other");
+  const [otherIncidentType, setOtherIncidentType] = useState("");
   const [locationLoaded, setLocationLoaded] = useState(false);
   const [mapRegion, setMapRegion] = useState<Region>({
     latitude: DEFAULT_COORDS.latitude,
@@ -121,7 +124,7 @@ const IncidentReport: React.FC = () => {
   // Load existing incident data
   const loadIncidentData = async () => {
     try {
-      const response = await axios.get(`http://192.168.100.3:3001/api/incidents/${incidentId}`);
+      const response = await axios.get(`${BASE_URL}/api/incidents/${incidentId}`);
       const incident = response.data;
       
       setIncidentType(incident.type);
@@ -145,7 +148,7 @@ const IncidentReport: React.FC = () => {
       }
       
       if (incident.image_path) {
-        setImage(`http://192.168.100.3:3001/uploads/${incident.image_path}`);
+        setImage(`${BASE_URL}/uploads/${incident.image_path}`);
       }
       
       if (incident.created_at) {
@@ -177,7 +180,7 @@ const IncidentReport: React.FC = () => {
           text: "Confirm",
           onPress: async () => {
             try {
-              const response = await axios.put(`http://192.168.100.3:3001/api/incidents/${incidentId}/resolve`, {
+              const response = await axios.put(`${BASE_URL}/api/incidents/${incidentId}/resolve`, {
                 resolved_by: username,
                 resolved_at: new Date().toISOString()
               });
@@ -210,7 +213,7 @@ const IncidentReport: React.FC = () => {
     if (!username) return;
     
     try {
-      const response = await axios.get(`http://192.168.100.3:3001/api/logs/${username}`);
+      const response = await axios.get(`${BASE_URL}/api/logs/${username}`);
       const logs = response.data;
       
       console.log('Fetched logs for user:', username, 'Count:', logs.length);
@@ -418,8 +421,14 @@ const IncidentReport: React.FC = () => {
 
   const handleAttachPhoto = async () => {
     if (isViewMode) return; // Disable in view mode
+
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Permission denied", "Camera permission is required to take photos.");
+      return;
+    }
     
-    const result = await ImagePicker.launchImageLibraryAsync({
+    const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [4, 3],
@@ -442,7 +451,7 @@ const IncidentReport: React.FC = () => {
     try {
       const formData = new FormData();
 
-      formData.append("incidentType", incidentType);
+      formData.append("incidentType", incidentType === "Other" ? otherIncidentType : incidentType);
       formData.append("latitude", pinLocation.latitude.toString());
       formData.append("longitude", pinLocation.longitude.toString());
       formData.append("datetime", formattedDateTime);
@@ -460,7 +469,7 @@ const IncidentReport: React.FC = () => {
         } as any);
       }
 
-      const response = await fetch("http://192.168.100.3:3001/api/incidents", {
+      const response = await fetch(`${BASE_URL}/api/incidents`, {
         method: "POST",
         body: formData,
       });
@@ -531,6 +540,32 @@ const IncidentReport: React.FC = () => {
     }
   };
 
+  if (userRole === "Tanod" && !isViewMode) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Ionicons name="arrow-back" size={28} color="#fff" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Access Denied</Text>
+          <View style={styles.headerRight}></View>
+        </View>
+        <View style={styles.accessDeniedContainer}>
+          <Ionicons name="alert-circle-outline" size={80} color="#e74c3c" />
+          <Text style={styles.accessDeniedText}>
+            Tanod accounts do not have permission to report incidents.
+          </Text>
+          <Text style={styles.accessDeniedSubText}>
+            Only residents can report new incidents.
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <TouchableWithoutFeedback onPress={closeMenus}>
       <View style={styles.container}>
@@ -571,7 +606,7 @@ const IncidentReport: React.FC = () => {
             >
               {userImage ? (
                 <Image 
-                  source={{ uri: `http://192.168.100.3:3001/uploads/${userImage}` }}
+                  source={{ uri: `${BASE_URL}/uploads/${userImage}` }}
                   style={styles.profileImage}
                   onError={() => console.log("Error loading profile image")}
                 />
@@ -614,7 +649,7 @@ const IncidentReport: React.FC = () => {
         <ScrollView 
     contentContainerStyle={[styles.body, { paddingBottom: 40 }]}
   keyboardShouldPersistTaps="handled"
-  showsVerticalScrollIndicator={false}
+  showsVerticalScrollIndicator={true}
   scrollEnabled={true}
         >
           <Text style={styles.reportTitle}>
@@ -640,17 +675,45 @@ const IncidentReport: React.FC = () => {
           </Text>
           
           <Text style={styles.label}>Type of incident:</Text>
-          <TextInput
-                style={[styles.input, isViewMode && styles.readOnlyInput]}
-                value={incidentType}
-                onChangeText={isViewMode ? undefined : setIncidentType}
-                placeholder={isViewMode ? "" : "Enter incident type"}
-                placeholderTextColor="#999"
-                editable={!isViewMode}
-                scrollEnabled={false} // This is a TextInput prop, not a style
-                blurOnSubmit={true}
-                returnKeyType="done"
+          <View style={[styles.pickerContainer, isViewMode && styles.readOnlyInput]}>
+            <Picker
+              selectedValue={incidentType}
+              onValueChange={(itemValue) => {
+                if (!isViewMode) {
+                  setIncidentType(itemValue);
+                }
+              }}
+              style={styles.picker}
+              enabled={!isViewMode}
+            >
+              <Picker.Item label="Select Incident Type" value="" />
+              <Picker.Item label="Fire" value="Fire" />
+              <Picker.Item label="Accident" value="Accident" />
+              <Picker.Item label="Crime" value="Crime" />
+              <Picker.Item label="Emergency" value="Emergency" />
+              <Picker.Item label="Other" value="Other" />
+            </Picker>
+          </View>
+
+          {incidentType === "Other" && !isViewMode && (
+            <TextInput
+              style={styles.input}
+              placeholder="Specify other incident type"
+              value={otherIncidentType}
+              onChangeText={setOtherIncidentType}
+              editable={!isViewMode}
+            />
+          )}
+          {isViewMode && incidentType === "Other" && otherIncidentType !== "" && (
+            <>
+              <Text style={styles.label}>Other Incident Type:</Text>
+              <TextInput
+                style={[styles.input, styles.readOnlyInput]}
+                value={otherIncidentType}
+                editable={false}
               />
+            </>
+          )}
 
           <Text style={styles.label}>
             {isViewMode ? 'Reported Date & Time:' : 'Current Date & Time:'}
@@ -763,153 +826,160 @@ const IncidentReport: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: "#f5f6fa" 
+  container: {
+    flex: 1,
+    backgroundColor: "#f5f6fa", // Light background
   },
-  
-  // Updated header styles to match NavBar component
+
+  // Updated header styles for a cleaner, modern look
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    backgroundColor: "#555", // Match NavBar background
-    paddingBottom: 10,
-    zIndex: 10, // Increased zIndex
+    paddingHorizontal: 15, // Slightly less padding
+    paddingTop: 50, // Adjust for status bar
+    backgroundColor: "#34495e", // Darker, more modern header background
+    paddingBottom: 12,
+    borderBottomWidth: 1, // Subtle separator
+    borderBottomColor: "#e1e8ed",
+    zIndex: 10,
+    elevation: 4, // Add a subtle shadow for depth
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
   },
-  
+
   headerTitle: {
-    fontWeight: "bold", // Match NavBar font weight
-    fontSize: 18,
+    fontWeight: "700", // Bolder title
+    fontSize: 20, // Slightly larger
     color: "#fff",
     flex: 1,
     textAlign: "center",
-    marginLeft: 40,
+    // marginLeft: 40, // Remove fixed margin, let flex handle it
   },
-  
+
   headerRight: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
   },
-  
+
   iconButton: {
-    marginLeft: 10,
-    position: "relative",
+    padding: 5, // Add padding for easier tapping
+    borderRadius: 20, // Make it circular
   },
-  
+
   badge: {
     position: "absolute",
-    top: -5,
-    right: -5,
-    backgroundColor: "red",
+    top: -4,
+    right: -4,
+    backgroundColor: "#e74c3c", // Red for notifications
     borderRadius: 10,
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    minWidth: 16,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    minWidth: 18,
     alignItems: "center",
     justifyContent: "center",
+    zIndex: 1, // Ensure badge is above icon
   },
-  
+
   badgeText: {
     color: "white",
     fontSize: 10,
     fontWeight: "bold",
   },
-  
+
   profileImage: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 32, // Slightly larger
+    height: 32,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: '#fff',
   },
-  
-  // Fixed user menu styles - key fix for dropdown visibility
+
   userMenu: {
     position: "absolute",
-    top: 100, // Match NavBar positioning
+    top: 90, // Adjusted position
     right: 10,
     backgroundColor: "#fff",
     borderRadius: 8,
-    padding: 10,
+    padding: 8, // Slightly less padding
     shadowColor: "#000",
-    shadowOpacity: 0.2,
-    shadowRadius: 5,
-    elevation: 20, // Increased elevation significantly
-    zIndex: 1000, // Very high zIndex to ensure visibility
-    minWidth: 140,
-    borderWidth: 1,
-    borderColor: "#e1e8ed",
+    shadowOpacity: 0.15, // Softer shadow
+    shadowRadius: 8, // Larger shadow radius
+    elevation: 15, // Adjusted elevation
+    zIndex: 1000,
+    minWidth: 160, // Slightly wider
+    borderWidth: 0, // Remove border, rely on shadow
   },
-  
-  userMenuItem: { 
-    paddingVertical: 10, // Slightly increased padding
+
+  userMenuItem: {
+    paddingVertical: 12, // More vertical padding
     paddingHorizontal: 10,
     flexDirection: "row",
     alignItems: "center",
     borderRadius: 6,
+    // Add a subtle hover/press effect if possible, or just good spacing
   },
-  
-  userMenuText: { 
-    fontWeight: "bold", // Match NavBar font weight
-    fontSize: 16,
+
+  userMenuText: {
+    fontWeight: "600", // Slightly less bold
+    fontSize: 15,
     marginLeft: 10,
     color: "#333",
   },
-  
-  body: { 
-    padding: 20, 
+
+  body: {
+    padding: 15, // Consistent padding
     backgroundColor: "#f5f6fa",
-    flexGrow: 1, 
+    flexGrow: 1,
     paddingBottom: 40,
   },
-  
-  reportTitle: { 
-    fontSize: 24, 
-    fontWeight: "bold", 
-    marginBottom: 8,
+
+  reportTitle: {
+    fontSize: 26, // Larger title
+    fontWeight: "800", // Extra bold
+    marginBottom: 6,
     color: "#2c3e50",
-    textAlign: "center"
+    textAlign: "center",
   },
-  
+
   reportSubtitle: {
-    fontSize: 16,
+    fontSize: 15, // Slightly smaller
     color: "#7f8c8d",
     textAlign: "center",
-    marginBottom: 30,
-    fontWeight: "400"
+    marginBottom: 25, // Reduced margin
+    fontWeight: "400",
   },
-  
-  label: { 
-    fontSize: 16, 
-    marginBottom: 8, 
+
+  label: {
+    fontSize: 15, // Consistent label size
+    marginBottom: 6, // Reduced margin
     fontWeight: "600",
-    color: "#2c3e50"
+    color: "#34495e", // Darker label color
   },
-  
+
   usernameDisplay: {
     fontSize: 16,
-    color: "#4a90e2",
+    color: "#34495e", // Darker text
     backgroundColor: "#fff",
-    padding: 15,
+    padding: 14, // Consistent padding
     borderRadius: 8,
     borderWidth: 1,
     borderColor: "#e1e8ed",
-    marginBottom: 20,
-    fontWeight: "500"
+    marginBottom: 18, // Consistent margin
+    fontWeight: "500",
   },
-  
+
   input: {
     width: "100%",
     backgroundColor: "#fff",
     borderColor: "#e1e8ed",
     borderWidth: 1,
     borderRadius: 8,
-    padding: 15,
-    marginBottom: 20,
+    padding: 14, // Consistent padding
+    marginBottom: 18, // Consistent margin
     fontSize: 16,
     color: "#2c3e50",
     elevation: 1,
@@ -917,17 +987,38 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
-    textAlignVertical: 'top',
+    textAlignVertical: 'center', // Center text vertically
   },
-  
+
+  pickerContainer: {
+    width: "100%",
+    backgroundColor: "#fff",
+    borderColor: "#e1e8ed",
+    borderWidth: 1,
+    borderRadius: 8,
+    marginBottom: 18, // Consistent margin
+    elevation: 1,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    justifyContent: 'center',
+    paddingHorizontal: 5, // Add horizontal padding for picker
+  },
+  picker: {
+    height: 48, // Slightly smaller height for picker
+    width: "100%",
+    color: "#2c3e50",
+  },
+
   readOnlyInput: {
     backgroundColor: "#f8f9fa",
-    color: "#6c757d"
+    color: "#6c757d",
   },
-  
+
   mapContainer: {
     width: "100%",
-    height: 250,
+    height: 220, // Slightly smaller map
     borderRadius: 12,
     overflow: "hidden",
     marginBottom: 20,
@@ -939,121 +1030,120 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
-  
-  map: { 
-    ...StyleSheet.absoluteFillObject 
+
+  map: {
+    ...StyleSheet.absoluteFillObject,
   },
-  
+
   currentLocationButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#fff",
-    paddingVertical: 15,
+    backgroundColor: "#e8f0fe", // Lighter blue background
+    paddingVertical: 14, // Consistent padding
     paddingHorizontal: 20,
     borderRadius: 8,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: "#e1e8ed",
+    marginBottom: 18, // Consistent margin
+    borderWidth: 0, // Remove border
     elevation: 1,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
   },
-  
-  currentLocationText: { 
-    fontSize: 16, 
-    marginRight: 10,
+
+  currentLocationText: {
+    fontSize: 15,
+    marginRight: 8, // Reduced margin
     color: "#4a90e2",
-    fontWeight: "500"
+    fontWeight: "600", // Bolder text
   },
-  
+
   attachPhotoButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#fff",
-    paddingVertical: 15,
+    backgroundColor: "#e8f0fe", // Lighter blue background
+    paddingVertical: 14, // Consistent padding
     paddingHorizontal: 20,
     borderRadius: 8,
-    marginBottom: 30,
-    borderWidth: 1,
-    borderColor: "#e1e8ed",
+    marginBottom: 25, // Consistent margin
+    borderWidth: 0, // Remove border
     elevation: 1,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
   },
-  
-  attachPhotoButtonText: { 
-    fontSize: 16, 
+
+  attachPhotoButtonText: {
+    fontSize: 15,
     fontWeight: "600",
-    color: "#4a90e2"
+    color: "#4a90e2",
   },
-  
-  imageSection: { 
-    width: "100%", 
+
+  imageSection: {
+    width: "100%",
     marginBottom: 20,
-    marginTop: 20
+    marginTop: 10, // Reduced margin
   },
-  
+
   imageLabelRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 10,
-    alignItems: "center"
+    marginBottom: 8, // Reduced margin
+    alignItems: "center",
   },
-  
-  imageLabel: { 
-    fontSize: 16, 
+
+  imageLabel: {
+    fontSize: 15,
     fontWeight: "600",
-    color: "#2c3e50"
+    color: "#34495e",
   },
-  
+
   removePhotoText: {
     color: "#e74c3c",
-    fontSize: 14,
-    fontWeight: "500"
+    fontSize: 13, // Slightly smaller
+    fontWeight: "500",
   },
-  
-  imagePreview: { 
-    width: "100%", 
-    height: 200, 
+
+  imagePreview: {
+    width: "100%",
+    height: 180, // Slightly smaller image preview
     borderRadius: 8,
     elevation: 2,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
+    resizeMode: 'cover', // Ensure image covers the area
   },
-  
+
   submitButton: {
-    backgroundColor: "#27ae60",
-    paddingVertical: 18,
+    backgroundColor: "#28a745", // Green for submit
+    paddingVertical: 16, // Consistent padding
     paddingHorizontal: 40,
     borderRadius: 8,
-    marginBottom: 30,
+    marginBottom: 25, // Consistent margin
     elevation: 3,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 3,
   },
-  
-  submitButtonText: { 
-    color: "#fff", 
-    fontWeight: "bold", 
-    fontSize: 18,
-    textAlign: "center"
+
+  submitButtonText: {
+    color: "#fff",
+    fontWeight: "700", // Bolder text
+    fontSize: 17, // Slightly smaller
+    textAlign: "center",
   },
-  
-  inputGroup: { 
-    width: "100%", 
-    marginBottom: 15 
+
+  inputGroup: {
+    width: "100%",
+    marginBottom: 15,
   },
-  
+
   inputLabel: {
     fontSize: 12,
     fontWeight: "bold",
@@ -1062,48 +1152,69 @@ const styles = StyleSheet.create({
   },
 
   statusBadge: {
-  alignSelf: 'center',
-  paddingHorizontal: 20,
-  paddingVertical: 8,
-  borderRadius: 20,
-  marginBottom: 20,
-  elevation: 2,
-  shadowColor: "#000",
-  shadowOffset: { width: 0, height: 1 },
-  shadowOpacity: 0.1,
-  shadowRadius: 2,
-},
+    alignSelf: 'center',
+    paddingHorizontal: 18,
+    paddingVertical: 7,
+    borderRadius: 20,
+    marginBottom: 20,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
 
-statusText: {
-  color: '#fff',
-  fontSize: 14,
-  fontWeight: 'bold',
-  textAlign: 'center',
-},
+  statusText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
 
-resolveButton: {
-  backgroundColor: "#27ae60",
-  flexDirection: "row",
-  alignItems: "center",
-  justifyContent: "center",
-  paddingVertical: 15,
-  paddingHorizontal: 20,
-  borderRadius: 8,
-  marginBottom: 20,
-  elevation: 3,
-  shadowColor: "#000",
-  shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.15,
-  shadowRadius: 3,
-},
+  resolveButton: {
+    backgroundColor: "#28a745", // Green for resolve
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    marginBottom: 20,
+    elevation: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+  },
 
-resolveButtonText: {
-  color: "#fff",
-  fontSize: 16,
-  fontWeight: "bold",
-  textAlign: "center",
-},
+  resolveButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "bold",
+    textAlign: "center",
+  },
 
+  accessDeniedContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+    backgroundColor: "#f5f6fa",
+  },
+  accessDeniedText: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#e74c3c",
+    textAlign: "center",
+    marginTop: 20,
+    marginBottom: 10,
+  },
+  accessDeniedSubText: {
+    fontSize: 16,
+    color: "#7f8c8d",
+    textAlign: "center",
+    paddingHorizontal: 20,
+  },
 });
 
 export default IncidentReport;

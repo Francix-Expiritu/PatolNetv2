@@ -1,6 +1,6 @@
 {
   "expo": {
-       "jsEngine": "hermes",
+    "jsEngine": "hermes",
     "name": "mobile",
     "slug": "mobile",
     "version": "1.0.0",
@@ -18,7 +18,7 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "App.Barangay.Incident_Report"
+    "package": "app.barangay.incidentreport"
     },
     "web": {
       "bundler": "metro",
@@ -39,6 +39,12 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "7466b89d-ff49-428c-bb87-ae9ac9937255"
+      }
     }
   }
 }

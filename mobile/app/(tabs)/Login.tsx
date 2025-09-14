@@ -15,7 +15,7 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from "react-native";
 import * as Location from 'expo-location'; // Import expo-location
-
+import { BASE_URL } from "../../config";
 
 type RootStackParamList = {
   Login: undefined;
@@ -77,7 +77,7 @@ const Login: React.FC = () => {
       }
 
       // Send SOS report to backend
-      const response = await axios.post("http://192.168.100.3:3001/sos-report", {
+      const response = await axios.post(`${BASE_URL}/sos-report`, {
         userId: storedUserId,
         username: storedUsername,
         latitude,
@@ -105,7 +105,7 @@ const Login: React.FC = () => {
 
     setLoading(true);
     try {
-        const response = await axios.post("http://192.168.100.3:3001/login", {
+        const response = await axios.post(`${BASE_URL}/login`, {
           username,
           password,
           clientType: 'mobile' // Specify this is a mobile client request

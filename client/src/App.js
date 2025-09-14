@@ -15,9 +15,11 @@ import AdminActivities from "./components/AdminActivities";
 import Dashboard from "./components/Dashboard.jsx";
 import AdminAnnouncements from "./components/AdminAnnouncements";
 import Download from "./components/Donwload";
-import Sidebar from "./components/Sidebar.jsx"; // Updated import
+import MainSidebarWrapper from "./components/MainSidebarWrapper.jsx"; // Corrected import
 import Messages from "./components/Messages";
-import ContactUs from "./components/ContactUs"; // Import ContactUs
+import ContactUs from "./components/ContactUs";
+import ResidentLandingPage from "./components/ResidentLandingPage";
+import TouristSpots from "./components/TouristSpots";
 
 // Components for Activities & Announcements
 import Activities from "./components/Activities";
@@ -28,18 +30,14 @@ function AppContent() {
   const navigate = useNavigate();
   const location = useLocation();
   const [showLogin, setShowLogin] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [userRole, setUserRole] = useState("");
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  useEffect(() => {
-    const loggedIn = localStorage.getItem("isLoggedIn");
-    const role = localStorage.getItem("userRole");
-    if (loggedIn === "true") {
-      setIsLoggedIn(true);
-      setUserRole(role);
-    }
-  }, []);
+  // Derive isLoggedIn and userRole directly from localStorage on every render
+  const initialIsLoggedIn = localStorage.getItem("isLoggedIn") === "true";
+  const initialUserRole = localStorage.getItem("userRole") || "";
+
+  const [isLoggedIn, setIsLoggedIn] = useState(initialIsLoggedIn);
+  const [userRole, setUserRole] = useState(initialUserRole);
 
   const handleLoginSuccess = (userData) => {
     setIsLoggedIn(true);
@@ -64,7 +62,7 @@ function AppContent() {
     setIsLoggingOut(true);
     
     // Clear localStorage immediately
-    localStorage.clear(); // This clears ALL localStorage items
+    localStorage.clear();
     
     // Clear all state immediately (synchronously)
     setIsLoggedIn(false);
@@ -82,16 +80,44 @@ function AppContent() {
       setIsLoggingOut(false);
       
       console.log("Logout complete - should be on landing page");
-    }, 50); // Very short delay to ensure state updates
+    }, 50);
   };
 
-  // Check if we should show the sidebar
-  const shouldShowSidebar = isLoggedIn && userRole !== "Resident";
+  // Helper functions for route protection
+  const isAdmin = () => {
+    return isLoggedIn && userRole !== "Tanod" && userRole !== "Resident";
+  };
 
-  const currentUser = useMemo(() => ({
-    username: localStorage.getItem('username'),
-    role: userRole
-  }), [userRole]);
+  const isTanodOrAdmin = () => {
+    return isLoggedIn && (userRole === "Tanod" || userRole === "Admintanod" || isAdmin());
+  };
+
+  const isResidentOrTanod = () => {
+    return isLoggedIn && (userRole === "Tanod" || userRole === "Resident");
+  };
+
+  const currentUser = useMemo(() => {
+    const localStorageRole = localStorage.getItem('userRole');
+    const localStorageUsername = localStorage.getItem('username');
+    
+    console.log('=== APP.JS CURRENT USER DEBUG ===');
+    console.log('userRole state:', userRole);
+    console.log('localStorage userRole:', localStorageRole);
+    console.log('localStorage username:', localStorageUsername);
+    
+    const user = {
+      username: localStorageUsername || '',
+      role: String(userRole || localStorageRole || '').trim() // Ensure role is always a trimmed string
+    };
+    
+    console.log('Final currentUser object being passed to Sidebar:', user);
+    console.log('===============================\n'); // Added newline for clarity
+    
+    return user;
+  }, [userRole]);
+
+  // Check if we should show the sidebar
+  const shouldShowSidebar = isLoggedIn && currentUser?.role && currentUser.role !== "Resident";
 
   return (
     <div className="app">
@@ -136,7 +162,7 @@ function AppContent() {
 
       {/* Show Sidebar for admin users - FIXED: Pass onLogout prop */}
       {shouldShowSidebar && (
-        <Sidebar 
+        <MainSidebarWrapper 
           currentUser={currentUser} 
           onLogout={handleLogout}
         />
@@ -145,24 +171,30 @@ function AppContent() {
       {/* Main content area - adjust margin when sidebar is present */}
       <div className={shouldShowSidebar ? "main-content" : ""}>
         <Routes>
-          <Route path="/" element={!isLoggedIn && !showLogin ? <Landingpage onLoginClick={() => setShowLogin(true)} /> : (isLoggedIn && (userRole === "Tanod" || userRole === "Resident") ? <Navigate to="/user" replace /> : (isLoggedIn ? <Navigate to="/dashboard" replace /> : <Navigate to="/" replace />))} />
+          {/* Public routes */}
+          <Route path="/" element={!isLoggedIn && !showLogin ? <Landingpage onLoginClick={() => setShowLogin(true)} /> : (isLoggedIn && isResidentOrTanod() ? <Navigate to="/user" replace /> : (isLoggedIn ? <Navigate to="/dashboard" replace /> : <Navigate to="/" replace />))} />
           <Route path="/about" element={<About />} />
           <Route path="/activities" element={<Activities />} />
           <Route path="/announcements" element={<Announcements />} />
-          <Route path="/contact-us" element={<ContactUs />} /> {/* Always accessible ContactUs Route */}
+          <Route path="/contact-us" element={<ContactUs />} />
           <Route path="/download" element={<Download />} />
 
-          {/* Logged-in routes */}
-          <Route path="/user" element={isLoggedIn && (userRole === "Tanod" || userRole === "Resident") ? <User onLogout={handleLogout} /> : <Navigate to="/" replace />} />
-          <Route path="/dashboard" element={isLoggedIn && !(userRole === "Tanod" || userRole === "Resident") ? <Dashboard /> : <Navigate to="/" replace />} />
-          <Route path="/incident-report" element={isLoggedIn && !(userRole === "Tanod" || userRole === "Resident") ? <IncidentReport /> : <Navigate to="/" replace />} />
-          <Route path="/scheduling" element={isLoggedIn && !(userRole === "Tanod" || userRole === "Resident") ? <ScheduleAssignment /> : <Navigate to="/" replace />} />
-          <Route path="/patrol-logs" element={isLoggedIn && !(userRole === "Tanod" || userRole === "Resident") ? <PatrolLogs /> : <Navigate to="/" replace />} />
-          <Route path="/Accounts" element={isLoggedIn && !(userRole === "Tanod" || userRole === "Resident") ? <Accounts /> : <Navigate to="/" replace />} />
-          <Route path="/gis-mapping" element={isLoggedIn && !(userRole === "Tanod" || userRole === "Resident") ? <GISMapping /> : <Navigate to="/" replace />} />
-          <Route path="/admin-activities" element={isLoggedIn && !(userRole === "Tanod" || userRole === "Resident") ? <AdminActivities /> : <Navigate to="/" replace />} />
-          <Route path="/admin-announcements" element={isLoggedIn && !(userRole === "Tanod" || userRole === "Resident") ? <AdminAnnouncements /> : <Navigate to="/" replace />} />
-          <Route path="/messages" element={isLoggedIn && !(userRole === "Tanod" || userRole === "Resident") ? <Messages /> : <Navigate to="/" replace />} />
+          {/* User routes (for Tanod and Resident) */}
+          <Route path="/user" element={isResidentOrTanod() ? <User onLogout={handleLogout} /> : <Navigate to="/" replace />} />
+
+          {/* Admin-only routes */}
+          <Route path="/dashboard" element={isAdmin() ? <Dashboard /> : <Navigate to="/" replace />} />
+          <Route path="/admin-activities" element={isAdmin() ? <AdminActivities /> : <Navigate to="/" replace />} />
+          <Route path="/admin-announcements" element={isAdmin() ? <AdminAnnouncements /> : <Navigate to="/" replace />} />
+          <Route path="/messages" element={isAdmin() ? <Messages /> : <Navigate to="/" replace />} />
+          <Route path="/tourist-spots" element={isAdmin() ? <TouristSpots /> : <Navigate to="/" replace />} />
+
+          {/* Shared routes (Tanod + Admin access) */}
+          <Route path="/incident-report" element={isTanodOrAdmin() ? <IncidentReport /> : <Navigate to="/" replace />} />
+          <Route path="/scheduling" element={isTanodOrAdmin() ? <ScheduleAssignment /> : <Navigate to="/" replace />} />
+          <Route path="/patrol-logs" element={isTanodOrAdmin() ? <PatrolLogs /> : <Navigate to="/" replace />} />
+          <Route path="/accounts" element={isTanodOrAdmin() ? <Accounts /> : <Navigate to="/" replace />} />
+          <Route path="/gis-mapping" element={isTanodOrAdmin() ? <GISMapping /> : <Navigate to="/" replace />} />
 
           {/* Catch-all route for unmatched paths */}
           <Route path="*" element={<Navigate to="/" replace />} />

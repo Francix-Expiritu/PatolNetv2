@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Plus, Edit2, Trash2, Calendar, FileText, Image, X, Save, Loader } from "lucide-react";
 import "./AdminActivities.css";
-import Navbar from './Sidebar';
+import MainSidebarWrapper from './MainSidebarWrapper';
 import { BASE_URL } from '../config';
 
 function AdminActivities() {
@@ -135,7 +135,7 @@ function AdminActivities() {
 
   return (
     <div className="admin-activities-container">
-      <Navbar/>
+      <MainSidebarWrapper/>
       {/* Header */}
       <div className="header1">
         <div className="header-content">

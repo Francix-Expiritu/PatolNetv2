@@ -10,6 +10,7 @@ import IncidentReport from './IncidentReport';
 import Profile from './Profile';
 import TimeIn from './TimeIn';
 import Notifications from './Notifications';
+import IncidentReportList from './IncidentReportList';
 
 // Define the IncidentReport interface to match what's used in NavBar
 interface IncidentReport {
@@ -38,6 +39,7 @@ export type RootStackParamList = {
     incidentNotifications?: IncidentReport[];
     onIncidentPress?: (incident: IncidentReport) => void;
   };
+  IncidentReportList: { username: string };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -56,6 +58,7 @@ export default function App() {
         <Stack.Screen name="Profile" component={Profile} />
         <Stack.Screen name="TimeIn" component={TimeIn} />
         <Stack.Screen name="Notifications" component={Notifications} />
+        <Stack.Screen name="IncidentReportList" component={IncidentReportList} />
       </Stack.Navigator>
     </NavigationContainer>
   );

@@ -28,7 +28,7 @@ SET time_zone = "+00:00";
 --
 
 CREATE TABLE `incident_report` (
-  `id` int(111) NOT NULL,
+  `id` int(4) NOT NULL,
   `incident_type` varchar(255) DEFAULT NULL,
   `reported_by` varchar(255) NOT NULL,
   `location` varchar(255) NOT NULL,
@@ -79,12 +79,16 @@ CREATE TABLE `logs_patrol` (
 --
 
 CREATE TABLE `schedules` (
-  `ID` int(255) NOT NULL,
+  `ID` int(255) NOT NULL AUTO_INCREMENT,
+  `user_id` int(11) NOT NULL,
   `USER` varchar(255) NOT NULL,
   `STATUS` varchar(255) NOT NULL,
   `LOCATION` varchar(255) DEFAULT NULL,
   `TIME` varchar(255) DEFAULT NULL,
-  `IMAGE` varchar(255) NOT NULL
+  `IMAGE` varchar(255) NOT NULL,
+  PRIMARY KEY (`ID`),
+  UNIQUE KEY `user_id` (`user_id`),
+  FOREIGN KEY (`user_id`) REFERENCES `users`(`ID`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -138,8 +142,7 @@ CREATE TABLE `activities` (
 -- Indexes for table `incident_report`
 --
 ALTER TABLE `incident_report`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `id` (`id`);
+  ADD PRIMARY KEY (`id`);
 
 --
 -- Indexes for table `logs`
@@ -157,7 +160,8 @@ ALTER TABLE `logs_patrol`
 -- Indexes for table `schedules`
 --
 ALTER TABLE `schedules`
-  ADD UNIQUE KEY `ID` (`ID`);
+  ADD PRIMARY KEY (`ID`),
+  ADD UNIQUE KEY `user_id` (`user_id`);
 
 --
 -- Indexes for table `users`
@@ -170,12 +174,6 @@ ALTER TABLE `users`
 --
 
 --
--- AUTO_INCREMENT for table `incident_report`
---
-ALTER TABLE `incident_report`
-  MODIFY `id` int(111) NOT NULL AUTO_INCREMENT;
-
---
 -- AUTO_INCREMENT for table `logs`
 --
 ALTER TABLE `logs`
@@ -185,6 +183,12 @@ ALTER TABLE `logs`
 -- AUTO_INCREMENT for table `logs_patrol`
 --
 ALTER TABLE `logs_patrol`
+  MODIFY `ID` int(255) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `schedules`
+--
+ALTER TABLE `schedules`
   MODIFY `ID` int(255) NOT NULL AUTO_INCREMENT;
 
 --
@@ -222,4 +226,19 @@ CREATE TABLE `announcements` (
   `image` VARCHAR(255) DEFAULT NULL,
   `posted_by` VARCHAR(255) DEFAULT NULL,
   PRIMARY KEY (`_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `tourist_spots`
+--
+
+CREATE TABLE `tourist_spots` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) NOT NULL,
+  `description` text NOT NULL,
+  `location` varchar(255) NOT NULL,
+  `image` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

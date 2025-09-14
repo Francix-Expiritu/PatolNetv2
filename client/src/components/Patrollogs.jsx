@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import Navbar from './Sidebar';
+import MainSidebarWrapper from './MainSidebarWrapper';
 import './Patrollogs.css'; // Import the CSS file
 import { BASE_URL } from '../config';
 
@@ -195,7 +195,7 @@ const PatrolLogs = () => {
   return (
     <div className="patrol-logs-container">
       <div className="no-print">
-        <Navbar />
+        <MainSidebarWrapper />
       </div>
 
       <div className="main-content">

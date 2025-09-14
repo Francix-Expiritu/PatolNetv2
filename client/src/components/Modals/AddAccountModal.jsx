@@ -134,22 +134,21 @@ const AddAccountModal = ({ isOpen, onClose, onAccountAdded }) => {
   if (!isOpen) return null;
 
   return (
-<div className="fixed">
-  <div className="modal-box w-11/12 max-w-2xl">
-    {/* Header */}
-    <div className="modal-header">
-      <h3 className="modal-title">Create New Account</h3>
-      <button onClick={onClose} className="close-btn">
-        <X className="w-5 h-5 text-gray-600" />
-      </button>
-    </div>
+    <div className="modal-overlay">
+      <div className="modal-container">
+        {/* Header */}
+        <div className="modal-header">
+          <h3 className="modal-title">Create New Account</h3>
+          <button onClick={onClose} className="modal-close">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
 
-    {/* Form */}
-
-         <form className="modal-form" onSubmit={handleAddAccount}>
-      <div className="form-grid">
+        {/* Form */}
+        <form className="modal-form" onSubmit={handleAddAccount}>
+          <div className="modal-grid">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="modal-label">
                 Full Name
               </label>
               <input
@@ -158,19 +157,19 @@ const AddAccountModal = ({ isOpen, onClose, onAccountAdded }) => {
                 value={newAccount.name}
                 onChange={handleInputChange}
                 required
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                className="modal-input"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="modal-label">
                 Account Type
               </label>
               <select
                 name="role"
                 value={newAccount.role}
                 onChange={handleInputChange}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                className="modal-select"
               >
                 <option value="Resident">Resident</option>
                 <option value="Tanod">Tanod</option>
@@ -179,7 +178,7 @@ const AddAccountModal = ({ isOpen, onClose, onAccountAdded }) => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="modal-label">
                 Username
               </label>
               <input
@@ -188,12 +187,12 @@ const AddAccountModal = ({ isOpen, onClose, onAccountAdded }) => {
                 value={newAccount.username}
                 onChange={handleInputChange}
                 required
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                className="modal-input"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="modal-label">
                 Password
               </label>
               <input
@@ -202,61 +201,61 @@ const AddAccountModal = ({ isOpen, onClose, onAccountAdded }) => {
                 value={newAccount.password}
                 onChange={handleInputChange}
                 required
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                className="modal-input"
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+            <div className="full-span">
+              <label className="modal-label">
                 Email Address
               </label>
               <div className="flex gap-2">
-              <input
-                type="email"
-                name="email"
-                value={newAccount.email}
-                onChange={handleInputChange}
-                required
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-              />
-              <button
+                <input
+                  type="email"
+                  name="email"
+                  value={newAccount.email}
+                  onChange={handleInputChange}
+                  required
+                  className="modal-input"
+                />
+                <button
                   type="button"
                   onClick={handleSendVerificationEmail}
                   disabled={isVerifying}
-                  className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 shadow-sm"
+                  className="btn-cancel"
                 >
                   {isVerifying ? "Sending..." : "Send Code"}
                 </button>
-                </div>
+              </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+            <div className="full-span">
+              <label className="modal-label">
                 Verification Code
               </label>
               <div className="flex gap-2">
-              <input
-                type="text"
-                name="verificationCode"
-                value={newAccount.verificationCode}
-                onChange={handleInputChange}
-                required
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-              />
-              <button
+                <input
+                  type="text"
+                  name="verificationCode"
+                  value={newAccount.verificationCode}
+                  onChange={handleInputChange}
+                  required
+                  className="modal-input"
+                />
+                <button
                   type="button"
                   onClick={handleVerifyCode}
                   disabled={isVerifying}
-                  className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 shadow-sm"
+                  className="btn-cancel"
                 >
                   {isVerifying ? "Verifying..." : "Verify"}
                 </button>
-                </div>
-                {verificationMessage && <p className={`text-sm mt-1 ${isCodeVerified ? 'text-green-600' : 'text-red-600'}`}>{verificationMessage}</p>}
+              </div>
+              {verificationMessage && <p className={`small-note ${isCodeVerified ? 'text-green-600' : 'text-red-600'}`}>{verificationMessage}</p>}
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+            <div className="full-span">
+              <label className="modal-label">
                 Address
               </label>
               <input
@@ -265,19 +264,19 @@ const AddAccountModal = ({ isOpen, onClose, onAccountAdded }) => {
                 value={newAccount.address}
                 onChange={handleInputChange}
                 required
-                className="w-full rounded-lg border border-gray-300 px-.py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                className="modal-input"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="modal-label">
                 Status
               </label>
               <select
                 name="status"
                 value={newAccount.status}
                 onChange={handleInputChange}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                className="modal-select"
               >
                 <option value="Pending">Pending</option>
                 <option value="Active">Active</option>
@@ -287,17 +286,17 @@ const AddAccountModal = ({ isOpen, onClose, onAccountAdded }) => {
           </div>
 
           {/* Footer */}
-          <div className="flex justify-end gap-3 pt-4 border-t">
+          <div className="modal-footer">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 shadow-sm"
+              className="btn-cancel"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 text-sm font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 shadow-sm"
+              className="btn-save"
             >
               Save Account
             </button>
