@@ -1,0 +1,60 @@
+export default {
+  expo: {
+    jsEngine: 'hermes',
+    name: 'PatrolNet',
+    slug: 'PatrolNet',
+    version: '1.0.0',
+    orientation: 'portrait',
+    icon: './assets/images/new-icon.png',
+    scheme: 'mobile',
+    userInterfaceStyle: 'automatic',
+    newArchEnabled: true,
+    ios: {
+      supportsTablet: true,
+      bundleIdentifier: "com.patrolnet.mobile" // ✅ required by EAS
+    },
+    android: {
+      adaptiveIcon: {
+        foregroundImage: './assets/images/new-icon.png',
+        backgroundColor: '#ffffff',
+      },
+      edgeToEdgeEnabled: true,
+      package: 'app.barangay.incidentreport',
+      // By setting googleServicesFile to an empty string, we are explicitly telling Expo
+      // not to use any Firebase configuration for this Android app.
+      googleServicesFile: '',
+      config: {
+        googleMaps: {
+          apiKey: 'YOUR_GOOGLE_MAPS_API_KEY_HERE',
+        },
+      },
+    },
+    web: {
+      bundler: 'metro',
+      output: 'static',
+      favicon: './assets/images/new-icon.png',
+    },
+    plugins: [
+      'expo-router',
+      [
+        'expo-splash-screen',
+        {
+          image: './assets/images/new-icon.png',
+          imageWidth: 200,
+          resizeMode: 'contain',
+          backgroundColor: '#ffffff',
+        },
+      ],
+    ],
+    experiments: {
+      typedRoutes: true,
+    },
+    extra: {
+      router: {},
+      apiUrl: process.env.API_URL,
+      eas: {
+        projectId: '7466b89d-ff49-428c-bb87-ae9ac9937255',
+      },
+    },
+  },
+};

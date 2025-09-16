@@ -1,29 +1,29 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { BrowserRouter as Router, Routes, Route, NavLink, Navigate, useNavigate, useLocation } from "react-router-dom";
-import Login from './components/Login';
-import About from "./components/About";
-import IncidentReport from "./components/Incident_Report";
-import ScheduleAssignment from './components/ScheduleAssignment';
-import PatrolLogs from "./components/Patrollogs";
-import Accounts from "./components/Accounts";
-import GISMapping from "./components/GISmapping";
-import User from "./components/User";
+import Login from './components/Login.jsx';
+import About from "./components/About.jsx";
+import IncidentReport from "./components/Incident_Report.jsx";
+import ScheduleAssignment from './components/ScheduleAssignment.jsx';
+import PatrolLogs from "./components/Patrollogs.jsx";
+import Accounts from "./components/Accounts.jsx";
+import GISMapping from "./components/GISmapping.jsx";
+import User from "./components/User.jsx";
 import "./App.css";
 import Landingpage from "./Landingpage.jsx";
 
-import AdminActivities from "./components/AdminActivities";
+import AdminActivities from "./components/AdminActivities.jsx";
 import Dashboard from "./components/Dashboard.jsx";
-import AdminAnnouncements from "./components/AdminAnnouncements";
-import Download from "./components/Donwload";
+import AdminAnnouncements from "./components/AdminAnnouncements.jsx";
+import Download from "./components/Donwload.jsx";
 import MainSidebarWrapper from "./components/MainSidebarWrapper.jsx"; // Corrected import
-import Messages from "./components/Messages";
-import ContactUs from "./components/ContactUs";
-import ResidentLandingPage from "./components/ResidentLandingPage";
-import TouristSpots from "./components/TouristSpots";
+import Messages from "./components/Messages.jsx";
+import ContactUs from "./components/ContactUs.jsx";
+import ResidentLandingPage from "./components/ResidentLandingPage.jsx";
+import TouristSpots from "./components/TouristSpots.jsx";
 
 // Components for Activities & Announcements
-import Activities from "./components/Activities";
-import Announcements from "./components/Announcements";
+import Activities from "./components/Activities.jsx";
+import Announcements from "./components/Announcements.jsx";
 
 // Create a wrapper component to access navigate
 function AppContent() {
@@ -125,7 +125,7 @@ function AppContent() {
       {(!['/Accounts'].includes(location.pathname) && (!isLoggedIn || userRole === "Resident")) && (
         <header className="header">
           <div className="left">
-            <img src="logo.png" alt="Logo" className="logo" />
+            <img src="new-icon.png" alt="Logo" className="logo" />
             <h1>PatrolNet</h1>
           </div>
           <div className="right">

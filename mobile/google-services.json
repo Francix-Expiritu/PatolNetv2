@@ -9,7 +9,7 @@
       "client_info": {
         "mobilesdk_app_id": "1:919104731955:android:63f2ee9bbb57251baedc46",
         "android_client_info": {
-          "package_name": "App.Barangay.Incident_Report"
+          "package_name": "app.barangay.incidentreport"
         }
       },
       "oauth_client": [],

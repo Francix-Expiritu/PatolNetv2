@@ -213,16 +213,23 @@ function IncidentReport() {
   return (
     <div className="dashboard">
       <MainSidebarWrapper />
+      <div style={{ width: '100%' }}>
+        <div style={{ backgroundColor: '#ffffff', padding: '1.5rem 2rem', borderBottom: '1px solid #e5e7eb' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', maxWidth: '1200px', margin: '0 auto' }}>
+            <div>
+              <h1 style={{ fontSize: '1.75rem', fontWeight: '700', color: '#1f2937', margin: 0, display: 'flex', alignItems: 'center' }}>
+                <span style={{ marginRight: '0.75rem' }}>🚨</span>Incident Reports
+              </h1>
+              <p style={{ fontSize: '1rem', color: '#6b7280', marginTop: '0.25rem' }}>
+                Manage incident reports, assign tanods, and track resolution status
+              </p>
+            </div>
+          </div>
+        </div>
 
-      <div className="incident-container">
-        <header className="incident-header">
-          <h2>
-            <span className="incident-icon">🚨</span> Incident Reports
-          </h2>
-          <p>Manage incident reports, assign tanods, and track resolution status</p>
-        </header>
+        <div className="incident-container" style={{ padding: "2rem", maxWidth: '1200px', margin: '0 auto' }}>
 
-        <div className="incident-controls">
+          <div className="incident-controls">
           <input type="text" placeholder="Search incidents..." className="incident-search" />
         </div>
 
@@ -278,6 +285,7 @@ function IncidentReport() {
               )}
             </tbody>
           </table>
+        </div>
         </div>
       </div>
 

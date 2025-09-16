@@ -2316,6 +2316,97 @@ app.post("/api/tourist-spots", upload.single("image"), (req, res) => {
   });
 });
 
+// API endpoint to update a tourist spot by ID
+app.put("/api/tourist-spots/:id", upload.single("image"), (req, res) => {
+  const { id } = req.params;
+  const { name, description, location } = req.body;
+  const image = req.file ? req.file.filename : null;
+
+  if (!id) {
+    return res.status(400).json({ success: false, message: "Tourist spot ID is required" });
+  }
+
+  // Get current tourist spot data to check for an existing image
+  const getSpotSql = "SELECT image FROM tourist_spots WHERE id = ?";
+  db.query(getSpotSql, [id], (err, results) => {
+    if (err) {
+      console.error("❌ SQL error fetching tourist spot for update:", err);
+      return res.status(500).json({ success: false, message: "Database error" });
+    }
+
+    if (results.length === 0) {
+      return res.status(404).json({ success: false, message: "Tourist spot not found" });
+    }
+
+    const currentImage = results[0].image;
+    let sql, params;
+
+    if (image) {
+      // If a new image is uploaded, update all fields including the image
+      sql = "UPDATE tourist_spots SET name = ?, description = ?, location = ?, image = ? WHERE id = ?";
+      params = [name, description, location, image, id];
+      // Delete the old image if it exists
+      if (currentImage) {
+        const oldImagePath = path.join(__dirname, "uploads", currentImage);
+        fs.unlink(oldImagePath, (unlinkErr) => {
+          if (unlinkErr && unlinkErr.code !== 'ENOENT') {
+            console.error("Error deleting old tourist spot image:", unlinkErr);
+          }
+        });
+      }
+    } else {
+      // If no new image, update only the text fields
+      sql = "UPDATE tourist_spots SET name = ?, description = ?, location = ? WHERE id = ?";
+      params = [name, description, location, id];
+    }
+
+    db.query(sql, params, (updateErr, result) => {
+      if (updateErr) {
+        console.error("❌ SQL error updating tourist spot:", updateErr);
+        return res.status(500).json({ success: false, message: "Failed to update tourist spot" });
+      }
+      res.json({ success: true, message: "Tourist spot updated successfully" });
+    });
+  });
+});
+
+// API endpoint to delete a tourist spot by ID
+app.delete("/api/tourist-spots/:id", (req, res) => {
+  const { id } = req.params;
+
+  if (!id) {
+    return res.status(400).json({ success: false, message: "Tourist spot ID is required" });
+  }
+
+  // First, get the tourist spot to delete its image
+  const getSpotSql = "SELECT image FROM tourist_spots WHERE id = ?";
+  db.query(getSpotSql, [id], (err, results) => {
+    if (err) {
+      console.error("❌ SQL error fetching tourist spot for deletion:", err);
+      return res.status(500).json({ success: false, message: "Database error" });
+    }
+
+    if (results.length === 0) {
+      return res.status(404).json({ success: false, message: "Tourist spot not found" });
+    }
+
+    const imageToDelete = results[0].image;
+    const deleteSql = "DELETE FROM tourist_spots WHERE id = ?";
+    db.query(deleteSql, [id], (deleteErr, result) => {
+      if (deleteErr) {
+        console.error("❌ SQL error deleting tourist spot:", deleteErr);
+        return res.status(500).json({ success: false, message: "Failed to delete tourist spot" });
+      }
+      if (imageToDelete) {
+        fs.unlink(path.join(__dirname, "uploads", imageToDelete), (unlinkErr) => {
+          if (unlinkErr && unlinkErr.code !== 'ENOENT') console.error("Error deleting image file:", unlinkErr);
+        });
+      }
+      res.json({ success: true, message: "Tourist spot deleted successfully" });
+    });
+  });
+});
+
 // Start server
 app.listen(3001, '0.0.0.0', () => {
   console.log("✅ Server running on http://localhost:3001");

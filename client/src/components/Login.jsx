@@ -116,7 +116,7 @@ const Login = ({ setShowLogin, onLoginSuccess }) => {
       <header className="website-header">
         <div className="header-container">
           <div className="logo-section">
-            <img src="/logo.jpg" alt="Barangay Logo" className="header-logo" />
+            <img src="/new-icon.png" alt="Barangay Logo" className="header-logo" />
             <div className="logo-text">
               <h1>Barangay Portal</h1>
               <span>PatrolNet System</span>

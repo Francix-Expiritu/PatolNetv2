@@ -43,6 +43,199 @@ function ViewIncidentModal({
     }
   };
 
+  const handlePrint = () => {
+    const printWindow = window.open('', '_blank');
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Incident Report - INC-${String(selectedIncident.id).padStart(6, '0')}</title>
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              margin: 20px;
+              line-height: 1.6;
+              color: #333;
+            }
+            .header {
+              text-align: center;
+              margin-bottom: 30px;
+              border-bottom: 2px solid #333;
+              padding-bottom: 20px;
+            }
+            .incident-id {
+              font-size: 24px;
+              font-weight: bold;
+              color: #2563eb;
+            }
+            .info-grid {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 20px;
+              margin-bottom: 20px;
+            }
+            .info-row {
+              display: contents;
+            }
+            .info-field {
+              margin-bottom: 15px;
+            }
+            .label {
+              font-weight: bold;
+              color: #374151;
+              margin-bottom: 5px;
+            }
+            .value {
+              padding: 8px;
+              background-color: #f9fafb;
+              border-radius: 4px;
+              border: 1px solid #e5e7eb;
+            }
+            .status-resolved { color: #059669; font-weight: bold; }
+            .status-progress { color: #d97706; font-weight: bold; }
+            .status-pending { color: #dc2626; font-weight: bold; }
+            .priority-high { color: #dc2626; font-weight: bold; }
+            .priority-medium { color: #d97706; font-weight: bold; }
+            .priority-low { color: #059669; font-weight: bold; }
+            .description {
+              grid-column: 1 / -1;
+              margin-top: 10px;
+            }
+            .description .value {
+              min-height: 60px;
+              white-space: pre-wrap;
+            }
+            .image-section {
+              grid-column: 1 / -1;
+              margin-top: 20px;
+            }
+            .image-section img {
+              max-width: 400px;
+              max-height: 300px;
+              border: 1px solid #e5e7eb;
+              border-radius: 4px;
+            }
+            .footer {
+              margin-top: 30px;
+              text-align: center;
+              font-size: 12px;
+              color: #6b7280;
+              border-top: 1px solid #e5e7eb;
+              padding-top: 15px;
+            }
+            @media print {
+              body { margin: 0; }
+              .header { page-break-after: avoid; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>Incident Report</h1>
+            <div class="incident-id">INC-${String(selectedIncident.id).padStart(6, '0')}</div>
+          </div>
+          
+          <div class="info-grid">
+            <div class="info-field">
+              <div class="label">Status:</div>
+              <div class="value ${getStatusClass(selectedIncident.status)}">${selectedIncident.status || 'Unknown'}</div>
+            </div>
+            <div class="info-field">
+              <div class="label">Priority:</div>
+              <div class="value ${getPriorityClass(selectedIncident.priority)}">${selectedIncident.priority || 'Normal'}</div>
+            </div>
+            
+            <div class="info-field">
+              <div class="label">Incident Type:</div>
+              <div class="value">${selectedIncident.incident_type || 'Not specified'}</div>
+            </div>
+            <div class="info-field">
+              <div class="label">Location:</div>
+              <div class="value">${selectedIncident.location || 'Not specified'}</div>
+            </div>
+            
+            <div class="info-field">
+              <div class="label">Reported By:</div>
+              <div class="value">${selectedIncident.reported_by || 'Anonymous'}</div>
+            </div>
+            <div class="info-field">
+              <div class="label">Reported Time:</div>
+              <div class="value">${formatDateTime(selectedIncident.datetime)}</div>
+            </div>
+            
+            ${selectedIncident.assigned_tanod ? `
+              <div class="info-field">
+                <div class="label">Assigned Tanod:</div>
+                <div class="value">${selectedIncident.assigned_tanod}</div>
+              </div>
+            ` : ''}
+            
+            ${selectedIncident.resolved_at ? `
+              <div class="info-field">
+                <div class="label">Resolved Time:</div>
+                <div class="value">${formatDateTime(selectedIncident.resolved_at)}</div>
+              </div>
+            ` : ''}
+            
+            ${selectedIncident.resolved_by ? `
+              <div class="info-field">
+                <div class="label">Resolved By:</div>
+                <div class="value">${selectedIncident.resolved_by}</div>
+              </div>
+            ` : ''}
+            
+            ${selectedIncident.description ? `
+              <div class="description">
+                <div class="info-field">
+                  <div class="label">Description:</div>
+                  <div class="value">${selectedIncident.description}</div>
+                </div>
+              </div>
+            ` : ''}
+            
+            ${selectedIncident.notes ? `
+              <div class="description">
+                <div class="info-field">
+                  <div class="label">Additional Notes:</div>
+                  <div class="value">${selectedIncident.notes}</div>
+                </div>
+              </div>
+            ` : ''}
+            
+            ${selectedIncident.image ? `
+              <div class="image-section">
+                <div class="info-field">
+                  <div class="label">Evidence Photo:</div>
+                  <div class="value">
+                    <img src="${BASE_URL}/uploads/${selectedIncident.image}" alt="Incident evidence" onerror="this.style.display='none'; this.parentNode.innerHTML='<div>Evidence photo not available for printing</div>';" />
+                  </div>
+                </div>
+              </div>
+            ` : ''}
+          </div>
+          
+          <div class="footer">
+            Generated on: ${new Date().toLocaleString('en-US', {
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: true
+            })}<br>
+            Last updated: ${formatDateTime(selectedIncident.updated_at || selectedIncident.datetime)}
+          </div>
+        </body>
+      </html>
+    `;
+    
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+    printWindow.close();
+  };
+
   const handleImageClick = (imageSrc) => {
     const imageOverlay = document.createElement('div');
     imageOverlay.className = 'image-viewer-overlay';
@@ -94,14 +287,27 @@ function ViewIncidentModal({
         {/* Header */}
         <div className="modal-header">
           <h2>Incident Report Details</h2>
-          <button 
-            className="modal-close" 
-            onClick={onClose} 
-            aria-label="Close modal"
-            title="Close (Esc)"
-          >
-            ×
-          </button>
+          <div className="header-actions">
+            <button 
+              className="btn print-btn" 
+              onClick={handlePrint}
+              aria-label="Print incident report"
+              title="Print Report"
+            >
+              <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v2a2 2 0 002 2h6a2 2 0 002-2v-2h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zM5 14a1 1 0 001 1h8a1 1 0 001-1v-3H5v3z" clipRule="evenodd" />
+              </svg>
+              Print
+            </button>
+            <button 
+              className="modal-close" 
+              onClick={onClose} 
+              aria-label="Close modal"
+              title="Close (Esc)"
+            >
+              ×
+            </button>
+          </div>
         </div>
 
         {/* Body */}

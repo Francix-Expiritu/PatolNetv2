@@ -160,26 +160,16 @@ function GISMapping({ showOnlyMap }) {
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
     },
     header: {
-      background: 'rgba(255, 255, 255, 0.9)',
-      backdropFilter: 'blur(20px)',
-      borderBottom: '1px solid rgba(255, 255, 255, 0.2)',
-      position: 'sticky',
-      top: 0,
-      zIndex: 50,
-      padding: '1rem 0'
+      backgroundColor: '#ffffff',
+      padding: '1.5rem 2rem',
+      borderBottom: '1px solid #e5e7eb',
     },
     headerContent: {
-      maxWidth: '1400px',
+      maxWidth: '1200px',
       margin: '0 auto',
-      padding: '0 1.5rem',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between'
-    },
-    headerLeft: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: '12px'
     },
     headerIcon: {
       width: '40px',
@@ -192,17 +182,15 @@ function GISMapping({ showOnlyMap }) {
       color: 'white'
     },
     headerTitle: {
-      fontSize: '1.5rem',
+      fontSize: '1.75rem',
       fontWeight: '700',
-      background: 'linear-gradient(135deg, #1f2937, #4b5563)',
-      WebkitBackgroundClip: 'text',
-      WebkitTextFillColor: 'transparent',
+      color: '#1f2937',
       margin: 0
     },
     headerSubtitle: {
-      fontSize: '0.875rem',
+      fontSize: '1rem',
       color: '#6b7280',
-      margin: '2px 0 0 0'
+      marginTop: '0.25rem'
     },
     headerRight: {
       display: 'flex',
@@ -244,9 +232,9 @@ function GISMapping({ showOnlyMap }) {
       animation: 'pulse 2s infinite'
     },
     mainContent: {
-      maxWidth: '1400px',
+      maxWidth: '1200px',
       margin: '0 auto',
-      padding: '2rem 1.5rem',
+      padding: '2rem',
       display: 'grid',
       gridTemplateColumns: showOnlyMap ? '1fr' : '300px 1fr',
       gap: '3rem'
@@ -460,7 +448,7 @@ function GISMapping({ showOnlyMap }) {
       {!showOnlyMap && (
         <div style={styles.header}>
           <div style={styles.headerContent}>
-            <div style={styles.headerLeft}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
               <div style={styles.headerIcon}>
                 <MapPin size={20} />
               </div>
@@ -469,7 +457,6 @@ function GISMapping({ showOnlyMap }) {
                 <p style={styles.headerSubtitle}>Real-time incident tracking and visualization</p>
               </div>
             </div>
-            
             <div style={styles.headerRight}>
               <div style={styles.statusBadge}>
                 <div style={styles.pulse}></div>
@@ -604,7 +591,7 @@ function GISMapping({ showOnlyMap }) {
             </div>
 
 {/* Recent Incidents */}
-<div style={{...styles.card, width: '1190px'}}>
+<div style={{...styles.card, width: '1140px'}}>
   <h3 style={styles.cardTitle}>
     <Clock size={18} />
     Recent Incidents

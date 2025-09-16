@@ -28,6 +28,19 @@
   border-bottom: 1px solid rgba(255,255,255,0.1);
 }
 
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.brand-icon {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  color: #38bdf8; /* accent color */
+}
+
 .brand-text {
   font-size: 1.2rem;
   font-weight: bold;
@@ -84,6 +97,11 @@
   margin-right: 0.75rem;
   display: flex;
   align-items: center;
+}
+
+.nav-icon svg {
+  width: 20px; /* Corresponds to w-5/h-5 */
+  height: 20px;
 }
 
 .nav-label {
@@ -252,4 +270,34 @@
 
 .sidebar-toggle:hover {
   color: #fff;
+}
+
+/* === Main Layout Integration === */
+/* 
+  These styles are for the main layout that contains the sidebar.
+  They ensure the main content area is positioned correctly next to the fixed sidebar.
+  Assumes a structure like: 
+  <div class="admin-layout">
+    <Sidebar />
+    <main class="admin-content">...</main>
+  </div>
+*/
+.admin-layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+.admin-content {
+  flex-grow: 1;
+  padding: 20px;
+  background-color: #f4f7f6;
+
+}
+
+
+/* === Print Styles === */
+@media print {
+  .sidebar {
+    display: none !important;
+  }
 }

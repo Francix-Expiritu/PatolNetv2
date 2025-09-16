@@ -324,13 +324,13 @@ function AdminAnnouncements() {
           </div>
         )}
 
-        {/* Announcements Grid */}
+    
         <div className="announcements-section">
-          <div className="section-header">
+           {/*<div className="section-header">
             <h2 className="section-title">
               All Announcements ({announcements.length})
             </h2>
-          </div>
+          </div>*/}
 
           {isLoading ? (
             <div className="loading-state">

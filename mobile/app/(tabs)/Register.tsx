@@ -37,6 +37,11 @@ const Register: React.FC = () => {
   const [role, setRole] = useState("Resident");
   const [loading, setLoading] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
+  const [emailVerificationCode, setEmailVerificationCode] = useState("");
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [verificationSent, setVerificationSent] = useState(false);
+  const [verificationLoading, setVerificationLoading] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
 
   const handleUseCurrentLocation = async () => {
     setLocationLoading(true);
@@ -75,6 +80,64 @@ const Register: React.FC = () => {
     }
   };
 
+  const handleSendVerificationCode = async () => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      Alert.alert("Invalid email", "Please enter a valid email address");
+      return;
+    }
+    setVerificationLoading(true);
+    try {
+      const response = await axios.post(`${BASE_URL}/pre-register-send-code`, { email });
+      if (response.data.success) {
+        Alert.alert("Success", "Verification code sent to your email.");
+        setVerificationSent(true);
+        setResendCooldown(60);
+        const timer = setInterval(() => {
+          setResendCooldown(prev => {
+            if (prev <= 1) {
+              clearInterval(timer);
+              return 0;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+      } else {
+        Alert.alert("Error", response.data.message || "Failed to send code.");
+      }
+    } catch (error) {
+      console.error("Email verification error:", error);
+      Alert.alert("Error", "Could not send verification code. Please try again.");
+    } finally {
+      setVerificationLoading(false);
+    }
+  };
+
+  const handleVerifyCode = async () => {
+    if (!emailVerificationCode) {
+      Alert.alert("Missing Code", "Please enter the verification code.");
+      return;
+    }
+    setVerificationLoading(true);
+    try {
+      const response = await axios.post(`${BASE_URL}/pre-register-verify-code`, {
+        email,
+        code: emailVerificationCode,
+      });
+      if (response.data.success) {
+        Alert.alert("Success", "Email verified successfully!");
+        setEmailVerified(true);
+      } else {
+        Alert.alert("Error", response.data.message || "Invalid verification code.");
+      }
+    } catch (error) {
+      console.error("Email verification error:", error);
+      Alert.alert("Error", "Could not verify code. Please try again.");
+    } finally {
+      setVerificationLoading(false);
+    }
+  };
+
   const handleRegister = async () => {
     // Validate all required fields
     if (!username || !password || !name || !email || !address) {
@@ -89,6 +152,11 @@ const Register: React.FC = () => {
       return;
     }
 
+    if (!emailVerified) {
+      Alert.alert("Email Not Verified", "Please verify your email address before registering.");
+      return;
+    }
+
     setLoading(true);
     try {
       const response = await axios.post(`${BASE_URL}/register`, {
@@ -98,203 +166,267 @@ const Register: React.FC = () => {
         name,
         email,
         address,
+        emailVerified: true, // Add this field to match web registration
+        clientType: "mobile", // Specify client type for the backend
       });
 
       if (response.data.success) {
-        Alert.alert("Success", "Account created successfully. Please wait for admin approval", );
+        Alert.alert("Success", "Account created successfully. Please wait for admin approval");
         navigation.replace("Login");
       } else {
         Alert.alert("Error", response.data.message || "Registration failed");
       }
     } catch (error: any) {
-      console.error(error);
-      if (error.response && error.response.status === 409) {
-        Alert.alert("Error", "Username already exists");
+      console.error("Registration Error:", error);
+      if (error.response) {
+        const serverMessage = error.response.data?.message || error.response.data?.error;
+        if (error.response.status === 409) {
+          Alert.alert("Error", "Username already exists.");
+        } else if (error.response.status === 403) {
+          Alert.alert(
+            "Registration Forbidden",
+            serverMessage || "You are not permitted to register at this time."
+          );
+        } else {
+          Alert.alert("Error", serverMessage || "Something went wrong. Please try again later.");
+        }
       } else {
-        Alert.alert("Error", "Something went wrong. Try again later.");
+        Alert.alert("Connection Error", "Could not reach the server. Please check your connection.");
       }
     } finally {
       setLoading(false);
     }
   };
 
-return (
-  <ScrollView contentContainerStyle={styles.scrollContainer}>
-    <View style={styles.container}>
-      <View style={styles.box}>
-<View style={styles.headerSection}>
-  <Image
-      source={require('./logo.jpg')}
-    style={styles.logoImage}
-    resizeMode="contain"
-  />
-  <Text style={styles.appTitle}>PatrolNet</Text>
-  <Text style={styles.appSubtitle}>Emergency Response System</Text>
-  <Text style={styles.welcomeText}>Mobile Access - Tanod & Residents</Text>
-</View>
-
-        {/* Form Section */}
-        <View style={styles.formContainer}>
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>FULL NAME</Text>
-            <View style={styles.inputWrapper}>
-              <Text style={styles.inputIcon}>👤</Text>
-              <TextInput
-                style={styles.inputBox}
-                value={name}
-                onChangeText={setName}
-                placeholder="Enter your complete legal name"
-                placeholderTextColor="#ffffffff"
-              />
-            </View>
+  return (
+    <ScrollView contentContainerStyle={styles.scrollContainer}>
+      <View style={styles.container}>
+        <View style={styles.box}>
+          <View style={styles.headerSection}>
+            <Image
+              source={require('./logo.jpg')}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
+            <Text style={styles.appTitle}>PatrolNet</Text>
+            <Text style={styles.appSubtitle}>Emergency Response System</Text>
+            <Text style={styles.welcomeText}>Mobile Access - Tanod & Residents</Text>
           </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>OFFICER ID / USERNAME</Text>
-            <View style={styles.inputWrapper}>
-              <Text style={styles.inputIcon}>🆔</Text>
-              <TextInput
-                style={styles.inputBox}
-                value={username}
-                onChangeText={setUsername}
-                placeholder="Choose unique identifier"
-                placeholderTextColor="#ffffffff"
-                autoCapitalize="none"
-              />
-            </View>
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>SECURE PASSWORD</Text>
-            <View style={styles.inputWrapper}>
-              <Text style={styles.inputIcon}>🔐</Text>
-              <TextInput
-                style={styles.inputBox}
-                value={password}
-                onChangeText={setPassword}
-                placeholder="Create strong password"
-                placeholderTextColor="#ffffffff"
-                secureTextEntry
-              />
-            </View>
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>CONTACT EMAIL</Text>
-            <View style={styles.inputWrapper}>
-              <Text style={styles.inputIcon}>📧</Text>
-              <TextInput
-                style={styles.inputBox}
-                value={email}
-                onChangeText={setEmail}
-                placeholder="official.email@domain.com"
-                placeholderTextColor="#ffffffff"
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
-            </View>
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>SERVICE AREA / ADDRESS</Text>
-            <View style={styles.addressInputContainer}>
-              <View style={styles.addressWrapper}>
-                <Text style={styles.inputIcon}>📍</Text>
+          {/* Form Section */}
+          <View style={styles.formContainer}>
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>FULL NAME</Text>
+              <View style={styles.inputWrapper}>
+                <Text style={styles.inputIcon}>👤</Text>
                 <TextInput
-                  style={styles.addressInput}
-                  value={address}
-                  onChangeText={setAddress}
-                  placeholder="Enter service area or use GPS location"
+                  style={styles.inputBox}
+                  value={name}
+                  onChangeText={setName}
+                  placeholder="Enter your complete legal name"
                   placeholderTextColor="#ffffffff"
-                  multiline={true}
-                  numberOfLines={2}
                 />
               </View>
-              <TouchableOpacity
-                style={styles.locationButton}
-                onPress={handleUseCurrentLocation}
-                disabled={locationLoading}
-              >
-                {locationLoading ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.locationIcon}>🎯</Text>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>OFFICER ID / USERNAME</Text>
+              <View style={styles.inputWrapper}>
+                <Text style={styles.inputIcon}>🆔</Text>
+                <TextInput
+                  style={styles.inputBox}
+                  value={username}
+                  onChangeText={setUsername}
+                  placeholder="Choose unique identifier"
+                  placeholderTextColor="#ffffffff"
+                  autoCapitalize="none"
+                />
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>SECURE PASSWORD</Text>
+              <View style={styles.inputWrapper}>
+                <Text style={styles.inputIcon}>🔐</Text>
+                <TextInput
+                  style={styles.inputBox}
+                  value={password}
+                  onChangeText={setPassword}
+                  placeholder="Create strong password"
+                  placeholderTextColor="#ffffffff"
+                  secureTextEntry
+                />
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>CONTACT EMAIL</Text>
+              <View style={styles.emailInputContainer}>
+                <View style={[styles.inputWrapper, { flex: 1, marginRight: 8 }]}>
+                  <Text style={styles.inputIcon}>📧</Text>
+                  <TextInput
+                    style={styles.inputBox}
+                    value={email}
+                    onChangeText={setEmail}
+                    placeholder="official.email@domain.com"
+                    placeholderTextColor="#ffffffff"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    editable={!emailVerified}
+                  />
+                  {emailVerified && (
+                    <Ionicons name="checkmark-circle" size={20} color="#22C55E" />
+                  )}
+                </View>
+                {!emailVerified && (
+                  <TouchableOpacity
+                    style={[styles.verifyButton, (verificationLoading || resendCooldown > 0) && styles.verifyButtonDisabled]}
+                    onPress={handleSendVerificationCode}
+                    disabled={verificationLoading || resendCooldown > 0}
+                  >
+                    {verificationLoading ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <Text style={styles.verifyButtonText}>
+                        {verificationSent
+                          ? resendCooldown > 0
+                            ? `Resend (${resendCooldown})`
+                            : "Resend"
+                          : "Send Code"}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
                 )}
+              </View>
+            </View>
+
+            {verificationSent && !emailVerified && (
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>VERIFICATION CODE</Text>
+                <View style={styles.emailInputContainer}>
+                  <View style={[styles.inputWrapper, { flex: 1, marginRight: 8 }]}>
+                    <Text style={styles.inputIcon}>🔑</Text>
+                    <TextInput
+                      style={styles.inputBox}
+                      value={emailVerificationCode}
+                      onChangeText={setEmailVerificationCode}
+                      placeholder="Enter 6-digit code"
+                      placeholderTextColor="#ffffffff"
+                      keyboardType="number-pad"
+                      maxLength={6}
+                    />
+                  </View>
+                  <TouchableOpacity
+                    style={[styles.verifyButton, verificationLoading && styles.verifyButtonDisabled]}
+                    onPress={handleVerifyCode}
+                    disabled={verificationLoading}
+                  >
+                    {verificationLoading ? <ActivityIndicator size="small" color="#FFFFFF" /> : <Text style={styles.verifyButtonText}>Verify</Text>}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>SERVICE AREA / ADDRESS</Text>
+              <View style={styles.addressInputContainer}>
+                <View style={styles.addressWrapper}>
+                  <Text style={styles.inputIcon}>📍</Text>
+                  <TextInput
+                    style={styles.addressInput}
+                    value={address}
+                    onChangeText={setAddress}
+                    placeholder="Enter service area or use GPS location"
+                    placeholderTextColor="#ffffffff"
+                    multiline={true}
+                    numberOfLines={2}
+                  />
+                </View>
+                <TouchableOpacity
+                  style={styles.locationButton}
+                  onPress={handleUseCurrentLocation}
+                  disabled={locationLoading}
+                >
+                  {locationLoading ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.locationIcon}>🎯</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>ACCOUNT TYPE</Text>
+              <View style={styles.pickerContainer}>
+                <Text style={styles.pickerIcon}>👮‍♂️</Text>
+                <Picker
+                  selectedValue={role}
+                  onValueChange={(itemValue) => setRole(itemValue)}
+                  style={styles.picker}
+                >
+                  <Picker.Item label="🏠 Community Resident" value="Resident" />
+                  <Picker.Item label="🚔 Barangay Tanod Officer" value="Tanod" />
+                </Picker>
+              </View>
+              <Text style={styles.roleDescription}>
+                {role === 'Resident' 
+                  ? 'Report incidents and receive safety alerts'
+                  : 'Respond to emergencies and manage reports'
+                }
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.registerButton, loading && styles.registerButtonDisabled]}
+              onPress={handleRegister}
+              disabled={loading}
+              activeOpacity={0.8}
+            >
+              {loading ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                  <Text style={styles.loadingText}>CREATING ACCOUNT...</Text>
+                </View>
+              ) : (
+                <View style={styles.buttonContent}>
+                  <Text style={styles.registerButtonText}>CREATE ACCOUNT</Text>
+                  <Text style={styles.buttonArrow}>✓</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+
+            {/* Security Notice */}
+            <View style={styles.securityNotice}>
+              <Text style={styles.securityIcon}>🛡️</Text>
+              <Text style={styles.securityText}>
+                Your information is encrypted and verified for security
+              </Text>
+            </View>
+
+            {/* Footer */}
+            <View style={styles.footerSection}>
+              <Text style={styles.footerText}>Already have credentials?</Text>
+              <TouchableOpacity 
+                onPress={() => navigation.replace("Login")}
+                style={styles.backButton}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.backButtonText}>← RETURN TO LOGIN</Text>
               </TouchableOpacity>
             </View>
           </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>ACCOUNT TYPE</Text>
-            <View style={styles.pickerContainer}>
-              <Text style={styles.pickerIcon}>👮‍♂️</Text>
-              <Picker
-                selectedValue={role}
-                onValueChange={(itemValue) => setRole(itemValue)}
-                style={styles.picker}
-              >
-                <Picker.Item label="🏠 Community Resident" value="Resident" />
-                <Picker.Item label="🚔 Barangay Tanod Officer" value="Tanod" />
-              </Picker>
-            </View>
-            <Text style={styles.roleDescription}>
-              {role === 'Resident' 
-                ? 'Report incidents and receive safety alerts'
-                : 'Respond to emergencies and manage reports'
-              }
+          {/* Terms Notice */}
+          <View style={styles.termsNotice}>
+            <Text style={styles.termsText}>
+              By creating an account, you agree to PatrolNet's security protocols and community safety guidelines
             </Text>
           </View>
-
-          <TouchableOpacity
-            style={[styles.registerButton, loading && styles.registerButtonDisabled]}
-            onPress={handleRegister}
-            disabled={loading}
-            activeOpacity={0.8}
-          >
-            {loading ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator color="#FFFFFF" size="small" />
-                <Text style={styles.loadingText}>CREATING ACCOUNT...</Text>
-              </View>
-            ) : (
-              <View style={styles.buttonContent}>
-                <Text style={styles.registerButtonText}>CREATE ACCOUNT</Text>
-                <Text style={styles.buttonArrow}>✓</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-
-          {/* Security Notice */}
-          <View style={styles.securityNotice}>
-            <Text style={styles.securityIcon}>🛡️</Text>
-            <Text style={styles.securityText}>
-              Your information is encrypted and verified for security
-            </Text>
-          </View>
-
-          {/* Footer */}
-          <View style={styles.footerSection}>
-            <Text style={styles.footerText}>Already have credentials?</Text>
-            <TouchableOpacity 
-              onPress={() => navigation.replace("Login")}
-              style={styles.backButton}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.backButtonText}>← RETURN TO LOGIN</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Terms Notice */}
-        <View style={styles.termsNotice}>
-          <Text style={styles.termsText}>
-            By creating an account, you agree to PatrolNet's security protocols and community safety guidelines
-          </Text>
         </View>
       </View>
-    </View>
-  </ScrollView>
-);
+    </ScrollView>
+  );
 };
 
 const styles = StyleSheet.create({
@@ -450,6 +582,26 @@ const styles = StyleSheet.create({
     textAlignVertical: "top",
     marginLeft: 10,
   },
+  emailInputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  verifyButton: {
+    backgroundColor: "#DC2626",
+    paddingHorizontal: 12,
+    height: 50,
+    borderRadius: 10,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  verifyButtonDisabled: {
+    opacity: 0.6,
+  },
+  verifyButtonText: {
+    color: "#FFFFFF",
+    fontWeight: "600",
+    fontSize: 14,
+  },
   locationButton: {
     width: 50,
     height: 40,
@@ -589,12 +741,12 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   logoImage: {
-  width: 100,
-  height: 100,
-  borderRadius: 50, // Makes it circular if your logo is square
-  marginBottom: 24,
-  backgroundColor: "#3B82F6", // Optional fallback
-},
+    width: 100,
+    height: 100,
+    borderRadius: 50, // Makes it circular if your logo is square
+    marginBottom: 24,
+    backgroundColor: "#3B82F6", // Optional fallback
+  },
 });
 
 export default Register;

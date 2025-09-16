@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { BASE_URL } from "../config";
 import "./TouristSpots.css"; 
-import { Plus, X, Image, Type, Calendar, Trash2, Edit, MapPin, FileText } from "lucide-react";
+import { Plus, X, Image, Type, Trash2, Edit, MapPin, FileText, Loader } from "lucide-react";
 
 const TouristSpots = () => {
   const [touristSpots, setTouristSpots] = useState([]);
@@ -36,6 +36,18 @@ const TouristSpots = () => {
     fetchTouristSpots();
   }, [fetchTouristSpots]);
 
+  const resetFormAndCloseModal = () => {
+    setIsEditing(false);
+    setCurrentTouristSpotId(null);
+    setTitle("");
+    setDescription("");
+    setLocation("");
+    setImage(null);
+    setImagePreview("");
+    setError("");
+    setShowModal(false);
+  };
+
   const handleAddNew = () => {
     setIsEditing(false);
     setCurrentTouristSpotId(null);
@@ -50,35 +62,48 @@ const TouristSpots = () => {
 
   const handleEdit = (spot) => {
     setIsEditing(true);
-    setCurrentTouristSpotId(spot._id);
-    setTitle(spot.name);
-    setDescription(spot.description);
-    setLocation(spot.location);
+    setCurrentTouristSpotId(spot.id || spot._id || spot.ID);
+    setTitle(spot.name || spot.NAME || "");
+    setDescription(spot.description || spot.DESCRIPTION || "");
+    setLocation(spot.location || spot.LOCATION || "");
     setImage(null);
-    setImagePreview(spot.image ? `${BASE_URL}/uploads/${spot.image}` : "");
+    const imageName = spot.image || spot.IMAGE;
+    setImagePreview(imageName ? `${BASE_URL}/uploads/${imageName}` : "");
     setError("");
     setShowModal(true);
   };
 
   const handleDelete = async (id) => {
     if (window.confirm("Are you sure you want to delete this tourist spot?")) {
+      setIsLoading(true);
+      setError("");
       try {
         const response = await fetch(`${BASE_URL}/api/tourist-spots/${id}`, {
           method: "DELETE",
         });
         if (!response.ok) {
-          const errorData = await response.json();
+          let errorData;
+          const contentType = response.headers.get("content-type");
+          if (contentType && contentType.indexOf("application/json") !== -1) {
+            errorData = await response.json();
+          } else {
+            const errorText = await response.text();
+            console.error("Server returned non-JSON response:", errorText);
+            throw new Error(`Server Error: ${response.status} ${response.statusText}. Check console for details.`);
+          }
           throw new Error(errorData.message || "Failed to delete tourist spot.");
         }
         await fetchTouristSpots();
       } catch (err) {
         setError(err.message);
+      } finally {
+        setIsLoading(false);
       }
     }
   };
 
   const handleCloseModal = () => {
-    setShowModal(false);
+    resetFormAndCloseModal();
   };
 
   const handleFormSubmit = async (e) => {
@@ -114,12 +139,20 @@ const TouristSpots = () => {
       }
 
       if (!response.ok) {
-        const errorData = await response.json();
+        let errorData;
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.indexOf("application/json") !== -1) {
+          errorData = await response.json();
+        } else {
+          const errorText = await response.text();
+          console.error("Server returned non-JSON response:", errorText);
+          throw new Error(`Server Error: ${response.status} ${response.statusText}. Check console for details.`);
+        }
         throw new Error(errorData.message || "Failed to save tourist spot.");
       }
 
       await fetchTouristSpots();
-      setShowModal(false);
+      resetFormAndCloseModal();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -143,7 +176,7 @@ const TouristSpots = () => {
             <h1 className="header-title">Tourist Spot Management</h1>
             <p className="header-subtitle">Manage and organize your tourist spots</p>
           </div>
-          <button onClick={handleAddNew} className="add-tourist-spot-btn">
+          <button onClick={handleAddNew} className="add-tourist-spot-btn" disabled={isLoading}>
             <Plus size={16} />
             Add Tourist Spot
           </button>
@@ -151,14 +184,14 @@ const TouristSpots = () => {
       </header>
 
       <main className="main-content">
-        {isLoading && <p>Loading...</p>}
+        {isLoading && touristSpots.length === 0 && <p>Loading...</p>}
         {error && <p className="error-message">{error}</p>}
         
         {!isLoading && !error && touristSpots.length === 0 ? (
           <div className="empty-state">
             <h3 className="empty-state-title">No tourist spots yet</h3>
             <p className="empty-state-description">Get started by creating your first tourist spot</p>
-            <button onClick={handleAddNew} className="add-tourist-spot-btn">
+            <button onClick={handleAddNew} className="add-tourist-spot-btn" disabled={isLoading}>
               <Plus size={16} />
               Add Your First Tourist Spot
             </button>
@@ -166,25 +199,25 @@ const TouristSpots = () => {
         ) : (
           <div className="tourist-spots-grid">
             {touristSpots.map((spot) => (
-              <div key={spot._id} className="tourist-spot-card">
-                {spot.image && (
+              <div key={spot.id || spot._id || spot.ID} className="tourist-spot-card">
+                {(spot.image || spot.IMAGE) && (
                   <div className="tourist-spot-image">
-                    <img src={`${BASE_URL}/uploads/${spot.image}`} alt={spot.name} />
+                    <img src={`${BASE_URL}/uploads/${spot.image || spot.IMAGE}`} alt={spot.name || spot.NAME} />
                   </div>
                 )}
                 <div className="tourist-spot-content">
-                  <h3 className="tourist-spot-title">{spot.name}</h3>
+                  <h3 className="tourist-spot-title">{spot.name || spot.NAME}</h3>
                   <div className="tourist-spot-date">
                     <MapPin size={16} className="tourist-spot-date-icon" />
-                    {spot.location}
+                    {spot.location || spot.LOCATION}
                   </div>
-                  <p className="tourist-spot-description">{spot.description}</p>
+                  <p className="tourist-spot-description">{spot.description || spot.DESCRIPTION}</p>
                   <div className="tourist-spot-actions">
-                    <button onClick={() => handleEdit(spot)} className="edit-btn">
+                    <button onClick={() => handleEdit(spot)} className="edit-btn" disabled={isLoading}>
                       <Edit size={16} />
                       Edit
                     </button>
-                    <button onClick={() => handleDelete(spot._id)} className="delete-btn">
+                    <button onClick={() => handleDelete(spot.id || spot._id || spot.ID)} className="delete-btn" disabled={isLoading}>
                       <Trash2 size={16} />
                       Delete
                     </button>
@@ -223,16 +256,13 @@ const TouristSpots = () => {
               </div>
               <div className="form-group">
                 <label htmlFor="description" className="form-label">Description</label>
-                <div className="input-wrapper">
-                  <FileText size={20} className="input-icon" />
-                  <textarea
-                    id="description"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    className="form-textarea"
-                    placeholder="Describe the tourist spot..."
-                  />
-                </div>
+                <textarea
+                  id="description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="form-textarea"
+                  placeholder="Describe the tourist spot..."
+                />
               </div>
               <div className="form-group">
                 <label htmlFor="location" className="form-label">Location</label>
@@ -250,24 +280,40 @@ const TouristSpots = () => {
               </div>
               <div className="form-group">
                 <label className="form-label">Image</label>
-                <div className="file-upload-area" onClick={() => document.getElementById('file-input').click()}>
-                  <input type="file" id="file-input" className="file-input-hidden" onChange={handleImageChange} accept="image/*" />
-                  {imagePreview ? (
-                    <img src={imagePreview} alt="Preview" className="preview-image" />
-                  ) : (
-                    <>
-                      <Image size={40} className="file-upload-icon" />
-                      <p className="file-upload-text">Click to upload an image</p>
-                    </>
-                  )}
-                </div>
+                <input
+                  type="file"
+                  id="image-upload"
+                  className="file-input-hidden"
+                  onChange={handleImageChange}
+                  accept="image/*"
+                  disabled={isLoading}
+                />
+                <label htmlFor="image-upload" className="file-upload-area">
+                  <Image size={24} className="file-upload-icon" />
+                  <span className="file-upload-text">Click to upload image</span>
+                </label>
               </div>
+
+              {imagePreview && (
+                <div className="image-preview">
+                  <img src={imagePreview} alt="Preview" className="preview-image" />
+                  <button
+                    type="button"
+                    onClick={() => { setImage(null); setImagePreview(""); }}
+                    className="remove-image-btn"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              )}
+
               <div className="form-buttons">
                 <button type="button" onClick={handleCloseModal} className="cancel-btn">
                   Cancel
                 </button>
                 <button type="submit" className="submit-btn" disabled={isLoading}>
-                  {isLoading ? "Saving..." : (isEditing ? "Update Tourist Spot" : "Create Tourist Spot")}
+                  {isLoading ? <><Loader size={16} className="spinner" /> Saving...</> 
+                  : (isEditing ? "Update Tourist Spot" : "Create Tourist Spot")}
                 </button>
               </div>
             </form>

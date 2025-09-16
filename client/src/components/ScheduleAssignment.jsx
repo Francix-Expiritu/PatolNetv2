@@ -227,16 +227,19 @@ const ScheduleAssignment = () => {
   return (
     <div className="schedule-assignment-container">
       <MainSidebarWrapper />
-
-      {/* Main Content */}
-      <div className="main-content">
-        <div className="page-header">
-          <h1 className="page-title">
-            Tanod Schedule & Assignment
-          </h1>
-          <p className="page-subtitle">Manage tanod schedules, assign tanods, and track assignment status</p>
+      <div style={{ width: '100%' }}>
+        <div className="header1">
+          <div className="header-content">
+            <div className="header-title-container">
+              <h1 className="header-title">
+                Tanod Schedule & Assignment
+              </h1>
+              <p className="header-subtitle">Manage tanod schedules, assign tanods, and track assignment status</p>
+            </div>
+          </div>
         </div>
 
+        <div className="main-content">
         <EditScheduleModal
           isOpen={showModal}
           onClose={closeModal}
@@ -329,10 +332,8 @@ const ScheduleAssignment = () => {
                           onClick={() => handleClick(person)}
                           className="btn btn-edit"
                         >
-                          <svg className="btn-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                          </svg>
-                          Edit
+     
+                          Add
                         </button>
                         <button
                           onClick={(e) => {
@@ -359,6 +360,7 @@ const ScheduleAssignment = () => {
               </tbody>
             </table>
           </div>
+        </div>
         </div>
       </div>
       </div>

@@ -142,75 +142,25 @@ function Dashboard() {
       padding: 0,
       margin: 0
     }}>
-      {/* Header Section */}
-      <div style={{
-        background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)',
-        color: 'white',
-        padding: '3rem 0',
-        position: 'relative',
-        overflow: 'hidden'
-      }}>
-        <div style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'url("data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%23ffffff" fill-opacity="0.03"%3E%3Cpath d="m36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")',
-          opacity: 0.4
-        }} />
-        
-        <div style={{
-          width: '100%',
-          margin: '0',
-          padding: '0 2rem',
-          textAlign: 'center',
-          position: 'relative',
-          zIndex: 1
-        }}>
-          <div style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'rgba(255, 255, 255, 0.1)',
-            borderRadius: '50px',
-            padding: '1rem 2rem',
-            marginBottom: '1.5rem',
-            backdropFilter: 'blur(10px)',
-            border: '1px solid rgba(255, 255, 255, 0.2)'
-          }}>
-            <span style={{ fontSize: '2rem', marginRight: '1rem' }}>🧑‍💼</span>
-            <h1 style={{
-              fontSize: 'clamp(1.5rem, 4vw, 2.5rem)',
-              fontWeight: '700',
-              margin: 0,
-              background: 'linear-gradient(135deg, #ffffff 0%, #e2e8f0 100%)',
-              backgroundClip: 'text',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent'
-            }}>
-              BarangayWatch Admin Panel
+      <div style={{ backgroundColor: '#ffffff', padding: '1.5rem 2rem', borderBottom: '1px solid #e5e7eb' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', maxWidth: '1200px', margin: '0 auto' }}>
+          <div>
+            <h1 style={{ fontSize: '1.75rem', fontWeight: '700', color: '#1f2937', margin: 0 }}>
+              Welcome to Admin Panel
             </h1>
+            <p style={{ fontSize: '1rem', color: '#6b7280', marginTop: '0.25rem', maxWidth: '600px' }}>
+              Comprehensive administrative dashboard for managing community safety, user accounts, and barangay operations
+            </p>
           </div>
-          
-          <p style={{
-            fontSize: '1.125rem',
-            opacity: 0.9,
-            margin: '0 auto',
-            maxWidth: '600px',
-            lineHeight: 1.6,
-            fontWeight: '400'
-          }}>
-            Comprehensive administrative dashboard for managing community safety, user accounts, and barangay operations
-          </p>
         </div>
       </div>
 
       {/* Main Content */}
       <div style={{
         width: '100%',
-        margin: '0',
-        padding: '3rem 2rem'
+        padding: '2rem',
+        maxWidth: '1200px',
+        margin: '0 auto'
       }}>
         {loading ? (
           <div style={{

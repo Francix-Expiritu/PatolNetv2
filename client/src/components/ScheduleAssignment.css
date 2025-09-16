@@ -3,32 +3,47 @@
 /* Main container */
 .schedule-assignment-container {
   min-height: 100vh;
-  background-color: #f5f5f5;
+  background-color: #ffffff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 /* Main content area */
 .main-content {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 2rem 1rem;
+  padding: 2rem;
 }
 
-/* Page header */
-.page-header {
-  margin-bottom: 2rem;
+/* Header */
+.header1 {
+  background-color: #ffffff;
+  padding: 1.5rem 2rem;
+  border-bottom: 1px solid #e5e7eb;
 }
 
-.page-title {
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.header-title-container {
+  flex-grow: 1;
+}
+
+.header-title {
   font-size: 1.75rem;
-  font-weight: bold;
-  margin: 0 0 0.25rem 0;
-  color: #1a1a1a;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0;
 }
 
-.page-subtitle {
+.header-subtitle {
   color: #6b7280;
-  margin: 0;
   font-size: 1rem;
+  margin-top: 0.25rem;
 }
 
 /* Error message */
@@ -391,7 +406,7 @@
 /* Responsive design */
 @media (min-width: 640px) {
   .main-content {
-    padding: 2rem 1.5rem;
+    padding: 2rem;
   }
 }
 
@@ -442,7 +457,7 @@
 /* Small mobile adjustments */
 @media (max-width: 480px) {
   .main-content {
-    padding: 1rem 0.5rem;
+    padding: 1rem;
   }
   
   .page-title {

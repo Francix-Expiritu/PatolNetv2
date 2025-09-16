@@ -3,7 +3,7 @@ import axios from 'axios';
 import MainSidebarWrapper from './MainSidebarWrapper';
 import './Patrollogs.css'; // Import the CSS file
 import { BASE_URL } from '../config';
-
+import ActivityDetailsModal from './Modals/ActivityDetails';
 const PatrolLogs = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [activitiesSearchTerm, setActivitiesSearchTerm] = useState('');
@@ -17,6 +17,9 @@ const PatrolLogs = () => {
   const itemsPerPage = 10;
 
   const [patrolActivitiesData, setPatrolActivitiesData] = useState([]);
+
+  const [selectedActivity, setSelectedActivity] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Function to truncate location text
   const truncateLocation = (text, maxLength = 18) => {
@@ -36,6 +39,7 @@ const PatrolLogs = () => {
         // Transform the logs data for TANOD SCHEDULE table
         const transformedLogs = response.data.map((log, index) => ({
           id: log.ID || index + 1,
+          displayId: 1000 + ((log.ID || index) % 9000), // Deterministic 4-digit ID
           tanod: log.USER || 'Unknown',
           timeIn: log.TIME_IN || 'Not specified', 
           timeOut: log.TIME_OUT || 'Not specified',
@@ -49,6 +53,7 @@ const PatrolLogs = () => {
           .map((log, index) => ({
             id: log.ID || index + 1,
             tanod: log.USER || 'Unknown',
+            displayId: 1000 + ((log.ID || index) % 9000),
             timeResolved: log.TIME_OUT || log.TIME || 'Not specified',
             location: log.LOCATION || 'Not specified',
             status: log.ACTION || 'No Action'
@@ -76,7 +81,11 @@ const PatrolLogs = () => {
       
       if (response.data && Array.isArray(response.data)) {
         const transformedActivities = response.data.map((activity, index) => ({
-          id: activity.ID || index + 1,
+          // Keep original data for the modal
+          ...activity,
+          // Add/overwrite keys for the table display
+          id: activity.ID || index + 1, // Use original ID for key, but ensure fallback
+          displayId: 1000 + ((activity.ID || index) % 9000), // Deterministic 4-digit ID
           tanod: activity.USER || 'Unknown',
           time: activity.TIME || 'Not specified',
           location: activity.LOCATION || 'Not specified',
@@ -91,6 +100,16 @@ const PatrolLogs = () => {
       console.error('Error loading patrol activities:', err);
       setPatrolActivitiesData([]);
     }
+  };
+
+  const handleRowClick = (activity) => {
+    setSelectedActivity(activity);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedActivity(null);
   };
 
   useEffect(() => {
@@ -198,16 +217,18 @@ const PatrolLogs = () => {
         <MainSidebarWrapper />
       </div>
 
-      <div className="main-content">
-        {/* Page Header */}
-        <div className="page-header no-print">
-          <h1 className="page-title">
-            <span className="title-icon">🛡️</span>
-            <span>Patrol Logs</span>
-          </h1>
-          <p className="page-subtitle">Track tanod schedules and patrol activities</p>
+      <div style={{ width: '100%' }}>
+        <div className="header1 no-print">
+          <div className="header-content">
+            <div className="header-title-container">
+              <h1 className="header-title">
+                <span className="title-icon">🛡️</span>Patrol Logs
+              </h1>
+              <p className="header-subtitle">Track tanod schedules and patrol activities</p>
+            </div>
+          </div>
         </div>
-
+        <div className="main-content">
         {/* Error Message */}
         {error && (
           <div className="error-message no-print">
@@ -281,7 +302,7 @@ const PatrolLogs = () => {
                   {(window.matchMedia && window.matchMedia('print').matches ? filteredLogs : currentLogs).length > 0 ? (
                     (window.matchMedia && window.matchMedia('print').matches ? filteredLogs : currentLogs).map((log) => (
                       <tr key={log.id}>
-                        <td className="font-medium">#{log.id}</td>
+                        <td className="font-medium">#{log.displayId}</td>
                         <td>{log.tanod}</td>
                         <td>
                           {log.timeIn !== 'Not specified' ? new Date(log.timeIn).toLocaleString() : '—'}
@@ -416,8 +437,8 @@ const PatrolLogs = () => {
                     {/* For print, show all filtered activities instead of paginated ones */}
                     {(window.matchMedia && window.matchMedia('print').matches ? filteredActivities : currentActivities).length > 0 ? (
                       (window.matchMedia && window.matchMedia('print').matches ? filteredActivities : currentActivities).map((activity) => (
-                        <tr key={activity.id}>
-                          <td className="font-medium">#{activity.id}</td>
+                        <tr key={activity.id} onClick={() => handleRowClick(activity)}>
+                          <td className="font-medium">#{activity.displayId}</td>
                           <td>{activity.tanod}</td>
                           <td>
                             {activity.time !== 'Not specified' ? new Date(activity.time).toLocaleString() : '—'}
@@ -510,6 +531,13 @@ const PatrolLogs = () => {
             </>
           )}
         </div>
+        </div>
+
+        <ActivityDetailsModal
+          isOpen={isModalOpen}
+          onClose={handleCloseModal}
+          activity={selectedActivity}
+        />
       </div>
     </div>
   );

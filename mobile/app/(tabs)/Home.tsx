@@ -111,7 +111,7 @@ const Home: React.FC = () => {
       
 <View style={styles.logoContainer}>
   <Image
-    source={require('./logo.jpg')} // <-- Replace with your logo path
+    source={require('./new-icon.png')} // <-- Replace with your logo path
     style={styles.logoImage}
     resizeMode="contain"
   />

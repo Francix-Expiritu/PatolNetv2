@@ -302,13 +302,13 @@ function AdminActivities() {
           </div>
         )}
 
-        {/* Activities Grid */}
+        
         <div className="activities-section">
-          <div className="section-header">
+        {/*  <div className="section-header">
             <h2 className="section-title">
               All Activities ({activities.length})
             </h2>
-          </div>
+          </div>*/}
 
           {isLoading ? (
             <div className="loading-state">

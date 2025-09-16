@@ -287,10 +287,11 @@ const TanodSidebar = ({ currentUser, onLogout }) => {
         {/* Header */}
         <div className="sidebar-header">
           <div className="sidebar-brand">
+            <svg className="brand-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 2L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-3z"></path></svg>
             {!isCollapsed && <h1 className="brand-text">Tanod Dashboard</h1>}
           </div>
           <button className="sidebar-toggle" onClick={toggleSidebar}>
-            <svg style={{ width: '1.5rem', height: '1.5rem' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>

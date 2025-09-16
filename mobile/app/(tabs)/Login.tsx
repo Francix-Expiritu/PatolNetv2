@@ -200,7 +200,7 @@ return (
     <View style={styles.loginBox}>
  <View style={styles.headerSection}>
   <Image
-    source={require('./logo.jpg')}
+    source={require('./new-icon.png')}
     style={styles.logoImage}
     resizeMode="contain"
   />

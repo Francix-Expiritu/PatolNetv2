@@ -55,7 +55,7 @@ const ContactUs = () => {
     container: {
       maxWidth: '800px',
       margin: '50px auto',
-      padding: '30px',
+      padding: '2rem',
       backgroundColor: '#ffffff',
       borderRadius: '10px',
       boxShadow: '0 4px 20px rgba(0, 0, 0, 0.05)',
