@@ -652,6 +652,37 @@ app.post("/api/incidents", upload.single("image"), (req, res) => {
             console.log("No verified Tanod accounts found to notify.");
           }
         });
+
+        // After successfully inserting the incident, notify all Resident accounts
+        const getResidentsSql = "SELECT USER FROM users WHERE ROLE = 'Resident' AND STATUS = 'Verified'";
+        db.query(getResidentsSql, (residentErr, residentResults) => {
+          if (residentErr) {
+            console.error("❌ SQL error fetching Residents for notification:", residentErr);
+            return;
+          }
+
+          if (residentResults.length > 0) {
+            const notificationTime = getGMT8Time();
+            const notificationAction = `Incident reported at ${address} (${incidentType}). Please avoid the area.`;
+            const notificationLocation = address;
+
+            residentResults.forEach(resident => {
+              const insertLogSql = `
+                INSERT INTO logs_resident (USER, TIME, ACTION, LOCATION)
+                VALUES (?, ?, ?, ?)
+              `;
+              db.query(insertLogSql, [resident.USER, notificationTime, notificationAction, notificationLocation], (logErr) => {
+                if (logErr) {
+                  console.error(`❌ SQL error inserting notification for Resident ${resident.USER}:`, logErr);
+                } else {
+                  console.log(`✅ Notification sent to Resident ${resident.USER} for incident ${incidentId}`);
+                }
+              });
+            });
+          } else {
+            console.log("No verified Resident accounts found to notify.");
+          }
+        });
       }
     );
   });
@@ -1381,6 +1412,44 @@ app.get("/api/logs/:user", (req, res) => {
     if (err) {
       console.error("❌ SQL error fetching user logs:", err);
       return res.status(500).json({ error: "Failed to fetch user logs" });
+    }
+    res.json(results);
+  });
+});
+
+// API endpoint to fetch logs by user
+app.get("/api/logs_resident/:user", (req, res) => {
+  const username = req.params.user;
+  
+  if (!username) {
+    return res.status(400).json({ error: "Username is required" });
+  }
+  
+  const sql = "SELECT * FROM logs_resident WHERE USER = ? ORDER BY TIME DESC";
+  
+  db.query(sql, [username], (err, results) => {
+    if (err) {
+      console.error("❌ SQL error fetching user logs:", err);
+      return res.status(500).json({ error: "Failed to fetch user logs" });
+    }
+    res.json(results);
+  });
+});
+
+// API endpoint to fetch patrol logs by user
+app.get("/api/logs_patrol/:user", (req, res) => {
+  const username = req.params.user;
+  
+  if (!username) {
+    return res.status(400).json({ error: "Username is required" });
+  }
+  
+  const sql = "SELECT * FROM logs_patrol WHERE USER = ? ORDER BY TIME DESC";
+  
+  db.query(sql, [username], (err, results) => {
+    if (err) {
+      console.error("❌ SQL error fetching user patrol logs:", err);
+      return res.status(500).json({ error: "Failed to fetch user patrol logs" });
     }
     res.json(results);
   });
@@ -2408,6 +2477,19 @@ app.delete("/api/tourist-spots/:id", (req, res) => {
 });
 
 // Start server
-app.listen(3001, '0.0.0.0', () => {
-  console.log("✅ Server running on http://localhost:3001");
+const os = require("os");
+
+app.listen(3001, "0.0.0.0", () => {
+  const interfaces = os.networkInterfaces();
+  const addresses = [];
+  for (let iface in interfaces) {
+    for (let details of interfaces[iface]) {
+      if (details.family === "IPv4" && !details.internal) {
+        addresses.push(details.address);
+      }
+    }
+  }
+  console.log(`✅ Server running at:`);
+  console.log(`   Local:   http://localhost:3001`);
+  addresses.forEach(ip => console.log(`   Network: http://${ip}:3001`));
 });
