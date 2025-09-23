@@ -1,73 +1,39 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from 'react';
 import GISMapping from "./GISmapping";
 import "./Announcements.css";
+import "./CommunityHub.css";
+import CommunityHub from './CommunityHub';
 import { BASE_URL } from '../config';
 
 export default function AnnouncementPage() {
-  const [announcements, setAnnouncements] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedCategory, setSelectedCategory] = useState('all');
-  const [searchTerm, setSearchTerm] = useState('');
   const [recentIncident, setRecentIncident] = useState(null);
+  const [incidents, setIncidents] = useState([]);
 
   useEffect(() => {
-    const fetchAnnouncements = async () => {
-      try {
-        setLoading(true);
-        const response = await fetch(`${BASE_URL}/api/announcements`);
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const data = await response.json();
-        setAnnouncements(data);
-      } catch (error) {
-        console.error("Error fetching announcements:", error);
-        setAnnouncements([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchAnnouncements();
-  }, []);
-
-  useEffect(() => {
-    const fetchRecentIncident = async () => {
+    const fetchIncidents = async () => {
       try {
         const response = await fetch(`${BASE_URL}/api/incidents`);
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         const data = await response.json();
+        setIncidents(data);
         if (data.length > 0) {
-          // Sort incidents by date in descending order and get the most recent one
-          const sortedIncidents = data.sort((a, b) => new Date(b.date) - new Date(a.date));
+          const sortedIncidents = data.sort((a, b) => new Date(b.datetime) - new Date(a.datetime));
           setRecentIncident(sortedIncidents[0]);
         }
       } catch (error) {
-        console.error("Error fetching recent incident:", error);
+        console.error("Error fetching incidents:", error);
       }
     };
 
-    fetchRecentIncident();
+    fetchIncidents();
   }, []);
-
-  const categories = ['all', 'emergency', 'community', 'maintenance', 'events'];
-
-  const filteredAnnouncements = announcements.filter(announcement => {
-    const matchesCategory = selectedCategory === 'all' || 
-      announcement.category === selectedCategory;
-    const matchesSearch = announcement.title.toLowerCase()
-      .includes(searchTerm.toLowerCase()) ||
-      announcement.description.toLowerCase()
-      .includes(searchTerm.toLowerCase());
-    return matchesCategory && matchesSearch;
-  });
 
   const formatDate = (dateString) => {
     const options = { 
       year: 'numeric', 
-      month: 'long', 
+      month: 'short', 
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
@@ -75,231 +41,196 @@ export default function AnnouncementPage() {
     return new Date(dateString).toLocaleDateString('en-US', options);
   };
 
-  const getPriorityClass = (priority) => {
-    switch (priority?.toLowerCase()) {
-      case 'high': return 'priority-high';
-      case 'medium': return 'priority-medium';
-      case 'low': return 'priority-low';
-      default: return 'priority-normal';
-    }
+  const getIncidentsByType = () => {
+    const types = {};
+    incidents.forEach(incident => {
+      const type = incident.incident_type || 'Other';
+      types[type] = (types[type] || 0) + 1;
+    });
+    return types;
   };
 
-  const visualImages = [
-    { src: "/Alert.png", alt: "Emergency Alert Guidelines", category: "emergency" },
-    { src: "Alert2.jpg", alt: "Safety Protocols", category: "safety" },
-    { src: "Alert3.jpg", alt: "Community Guidelines", category: "community" },
-    { src: "Medical.jpg", alt: "Medical Information", category: "health" },
-    { src: "slide1.jpg", alt: "Community Event", category: "events" },
-    { src: "slide2.jpg", alt: "Safety Awareness", category: "safety" },
-    { src: "slide3.jpg", alt: "Emergency Procedures", category: "emergency" },
-    { src: "/slide.jpg", alt: "General Information", category: "general" }
-  ];
+  const getRiskLevel = () => {
+    const activeIncidents = incidents.filter(i => i.status === 'active').length;
+    if (activeIncidents >= 5) return { level: 'High', color: '#ef4444' };
+    if (activeIncidents >= 2) return { level: 'Moderate', color: '#f59e0b' };
+    return { level: 'Low', color: '#10b981' };
+  };
+
+  const riskLevel = getRiskLevel();
 
   return (
     <div className="announcement-page">
-      {/* Header Section */}
-      <section className="page-header">
-        <div className="container">
-          <div className="header-content">
-            <h1 className="page-title">Community Announcements</h1>
-            <p className="page-subtitle">
-              Stay informed with the latest updates from your community
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Filters and Search */}
-      <section className="filters-section">
-        <div className="container">
-          <div className="filters-content">
-            <div className="search-box">
-              <input
-                type="text"
-                placeholder="Search announcements..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="search-input"
-              />
-              <span className="search-icon">🔍</span>
-            </div>
-            
-            <div className="category-filters">
-              {categories.map(category => (
-                <button
-                  key={category}
-                  className={`filter-btn ${selectedCategory === category ? 'active' : ''}`}
-                  onClick={() => setSelectedCategory(category)}
-                >
-                  {category.charAt(0).toUpperCase() + category.slice(1)}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Main Announcements Section */}
-      <section className="announcements-section">
-        <div className="container">
-          {loading ? (
-            <div className="loading-state">
-              <div className="loading-spinner"></div>
-              <p>Loading announcements...</p>
-            </div>
-          ) : filteredAnnouncements.length > 0 ? (
-            <div className="announcements-grid">
-              {filteredAnnouncements.map((announcement) => (
-                <div key={announcement._id} className={`announcement-card ${getPriorityClass(announcement.priority)}`}>
-                  <div className="card-header">
-                    <div className="card-meta">
-                      <span className="announcement-category">
-                        {announcement.category || 'General'}
-                      </span>
-                      {announcement.priority && (
-                        <span className={`priority-badge ${getPriorityClass(announcement.priority)}`}>
-                          {announcement.priority}
-                        </span>
-                      )}
-                    </div>
-                    <div className="announcement-date">
-                      {formatDate(announcement.date)}
-                    </div>
-                  </div>
-                  
-                  <div className="card-content">
-                    <h3 className="announcement-title">{announcement.title}</h3>
-                    <p className="announcement-description">
-                      {announcement.description}
-                    </p>
-                  </div>
-
-                  {announcement.image && (
-                    <div className="card-image">
-                      <img
-                        src={`${BASE_URL}/uploads/${announcement.image}`}
-                        alt={announcement.title}
-                        className="announcement-image"
-                      />
-                    </div>
-                  )}
-
-                  <div className="card-actions">
-                    <button className="btn btn-primary">Read More</button>
-                    <button className="btn btn-secondary">Share</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="empty-state">
-              <div className="empty-icon">📢</div>
-              <h3>No Announcements Found</h3>
-              <p>
-                {searchTerm || selectedCategory !== 'all' 
-                  ? 'Try adjusting your search or filter criteria.'
-                  : 'No announcements are available at the moment.'}
-              </p>
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* Incident Map Section */}
-      <section className="incident-section">
-  <div className="container">
-    <div className="incident-content">
-      <div className="incident-info">
-        <h2 className="section-title">Live Incident Map</h2>
-        {recentIncident ? (
-          <div className="incident-alert">
-            <div className="alert-icon">⚠️</div>
-            <div className="alert-content">
-              <h4>Recent Incident Report</h4>
-              <p>{recentIncident.description}</p>
-              <div className="incident-details">
-                <span className="detail-item">
-                  <strong>Status:</strong> {recentIncident.status}
-                </span>
-                <span className="detail-item">
-                  <strong>Response Time:</strong> {recentIncident.responsetime}
-                </span>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="loading-state">
-            <p>Loading recent incident...</p>
-          </div>
-        )}
-        
-        {recentIncident && recentIncident.image && (
-          <div className="incident-image-container">
-            <img
-              src={`${BASE_URL}/uploads/${recentIncident.image}`}
-              alt="Incident Location"
-              className="incident-image"
-            />
-          </div>
-        )}
-      </div>
-
-      <div className="map-container">
-        <GISMapping showOnlyMap={true} />
-      </div>
-    </div>
-  </div>
-</section>
-
-      {/* Visual Announcements Section */}
-      <section className="visual-announcements">
-        <div className="container">
-          <h2 className="section-title">Visual Information Board</h2>
-          <div className="visual-grid">
-            {visualImages.map((image, index) => (
-              <div key={index} className="visual-card">
-                <div className="image-container">
-                  <img 
-                    src={image.src} 
-                    alt={image.alt}
-                    className="visual-image"
-                  />
-                  <div className="image-overlay">
-                    <span className="image-category">{image.category}</span>
-                  </div>
-                </div>
-                <div className="image-info">
-                  <h4 className="image-title">{image.alt}</h4>
-                </div>
-              </div>
+      {/* Hero Section with Map Dashboard */}
+      <section className="hero-dashboard">
+        <div className="hero-background">
+          <div className="animated-grid"></div>
+          <div className="floating-particles">
+            {[...Array(15)].map((_, i) => (
+              <div key={i} className={`particle particle-${i % 3}`} />
             ))}
           </div>
         </div>
-      </section>
 
-      {/* Community Stats */}
-      <section className="stats-section">
-        <div className="container">
-          <div className="stats-grid">
-            <div className="stat-item">
-              <div className="stat-number">{announcements.length}</div>
-              <div className="stat-label">Total Announcements</div>
+        <div className="hero-content">
+          <div className="hero-header">
+            <h1 className="hero-title">
+              <span className="title-main">Community Safety</span>
+              <span className="title-sub">Dashboard</span>
+            </h1>
+            <p className="hero-description">
+              Real-time monitoring and community engagement platform
+            </p>
+          </div>
+
+          <div className="dashboard-grid">
+            {/* Enhanced Map Section */}
+            <div className="map-section">
+              <div className="map-card">
+                <div className="map-header">
+                  <div className="map-title">
+                    <h3>Live Incident Map</h3>
+                    <div className="live-indicator">
+                      <div className="pulse-dot"></div>
+                      <span>Live Updates</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="map-container">
+                  <GISMapping showOnlyMap={true} />
+                  <div className="map-overlay">
+                    <div className="quick-stats">
+                      <div className="stat-bubble">
+                        <span className="stat-number">{incidents.length}</span>
+                        <span className="stat-label">Total</span>
+                      </div>
+                      <div className="stat-bubble active">
+                        <span className="stat-number">{incidents.filter(i => i.status === 'active').length}</span>
+                        <span className="stat-label">Active</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="stat-item">
-              <div className="stat-number">24/7</div>
-              <div className="stat-label">Community Monitoring</div>
-            </div>
-            <div className="stat-item">
-              <div className="stat-number"> 5min</div>
-              <div className="stat-label">Average Response Time</div>
-            </div>
-            <div className="stat-item">
-              <div className="stat-number">99.9%</div>
-              <div className="stat-label">System Uptime</div>
+
+            {/* Enhanced Info Panel */}
+            <div className="info-section">
+              <div className="info-cards">
+                {/* Risk Level Card */}
+                <div className="info-card risk-card">
+                  <div className="card-header">
+                    <div className="card-icon">🛡️</div>
+                    <div className="card-title">Current Risk Level</div>
+                  </div>
+                  <div className="risk-display">
+                    <div 
+                      className="risk-level"
+                      style={{ backgroundColor: riskLevel.color }}
+                    >
+                      {riskLevel.level}
+                    </div>
+                    <div className="risk-details">
+                      <span>{incidents.filter(i => i.status === 'active').length} active incidents</span>
+                      <span>Last update: {new Date().toLocaleTimeString()}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Latest Incident Card */}
+                {recentIncident && (
+                  <div className="info-card incident-card">
+                    <div className="card-header">
+                      <div className="card-icon">🚨</div>
+                      <div className="card-title">Latest Incident</div>
+                    </div>
+                    <div className="incident-info">
+                      <div className="incident-type-badge">
+                        {recentIncident.incident_type || 'General'}
+                      </div>
+                      <div className="incident-time">
+                        {formatDate(recentIncident.datetime)}
+                      </div>
+                      <p className="incident-description">
+                        {recentIncident.description}
+                      </p>
+                      <div className="incident-status">
+                        <span className={`status-badge ${recentIncident.status}`}>
+                          {recentIncident.status}
+                        </span>
+                        <span className="response-time" >
+                          Response: {recentIncident.responsetime}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Incident Statistics */}
+                <div className="info-card stats-card">
+                  <div className="card-header">
+                    <div className="card-icon">📊</div>
+                    <div className="card-title">Incident Distribution</div>
+                  </div>
+                  <div className="incident-chart">
+                    {Object.entries(getIncidentsByType()).map(([type, count]) => (
+                      <div key={type} className="chart-item">
+                        <div className="chart-label">
+                          <span className="type-name">{type}</span>
+                          <span className="type-count">{count}</span>
+                        </div>
+                        <div className="chart-bar">
+                          <div 
+                            className="chart-fill" 
+                            style={{
+                              width: `${(count / incidents.length) * 100}%`,
+                              animationDelay: `${Object.keys(getIncidentsByType()).indexOf(type) * 0.1}s`
+                            }}
+                          ></div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Emergency Contacts */}
+                <div className="info-card contacts-card">
+                  <div className="card-header">
+                    <div className="card-icon">📞</div>
+                    <div className="card-title">Emergency Contacts</div>
+                  </div>
+                  <div className="contact-list">
+                    <div className="contact-item emergency">
+                      <div className="contact-info">
+                        <span className="contact-name">Emergency Services</span>
+                        <span className="contact-number">911</span>
+                      </div>
+                      <button className="call-btn">📞</button>
+                    </div>
+                    <div className="contact-item">
+                      <div className="contact-info">
+                        <span className="contact-name">Local Emergency</span>
+                        <span className="contact-number">(02) 8888-0911</span>
+                      </div>
+                      <button className="call-btn">📞</button>
+                    </div>
+                    <div className="contact-item">
+                      <div className="contact-info">
+                        <span className="contact-name">Disaster Response</span>
+                        <span className="contact-number">(02) 911-1406</span>
+                      </div>
+                      <button className="call-btn">📞</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </section>
+
+      {/* Enhanced Community Hub */}
+      <CommunityHub formatDate={formatDate} />
     </div>
   );
 }

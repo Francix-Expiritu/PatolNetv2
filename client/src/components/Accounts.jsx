@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { BASE_URL } from '../config';
 
 import './Accounts.css';
-import MainSidebarWrapper from './MainSidebarWrapper'; 
 import AddAccountModal from './Modals/AddAccountModal';
 import EditAccountModal from './Modals/EditAccountModal';
 
@@ -142,16 +141,13 @@ function Accounts() {
   });
 
   return (
-    <div className="admin-layout">
-      <MainSidebarWrapper />
+    <div className="accounts-page-container">
+      <div className="accounts-page-header">
+        <h1 className="accounts-page-title">User Accounts Management</h1>
+        <p className="accounts-page-subtitle">Manage system users, assign roles and permissions</p>
+      </div>
 
-      <main className="admin-content">
-        <div className="accounts-content-wrapper">
-          <div className="accounts-page-header">
-            <h1 className="accounts-page-title">User Accounts Management</h1>
-            <p className="accounts-page-subtitle">Manage system users, assign roles and permissions</p>
-          </div>
-
+      <div className="accounts-content-wrapper">
           <div className="accounts-table-card">
             <div className="accounts-table-controls">
               <input
@@ -190,6 +186,7 @@ function Accounts() {
               isOpen={showForm}
               onClose={() => setShowForm(false)}
               onAccountAdded={fetchUsers}
+              defaultStatus="Pending"
             />
 
             <EditAccountModal
@@ -269,8 +266,7 @@ function Accounts() {
               </table>
             </div>
           </div>
-        </div>
-      </main>
+      </div>
     </div>
   );
 }

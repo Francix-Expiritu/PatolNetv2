@@ -3,7 +3,6 @@ import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { MapPin, RefreshCw, AlertTriangle, Activity, Shield, Flame, Car, Filter, BarChart3, Clock, User, Calendar, MapPinIcon } from 'lucide-react';
-import MainSidebarWrapper from './MainSidebarWrapper';
 import { BASE_URL } from '../config';
 
 // Fix for default markers in react-leaflet
@@ -136,7 +135,7 @@ function GISMapping({ showOnlyMap }) {
     const styles = {
       'Resolved': { backgroundColor: '#d1fae5', color: '#065f46', borderColor: '#a7f3d0' },
       'In Progress': { backgroundColor: '#fef3c7', color: '#92400e', borderColor: '#fde68a' },
-      'Under Review': { backgroundColor: '#fee2e2', color: '#991b1b', borderColor: '#fecaca' }
+      'Under Review': { backgroundColor: '#a16207', color: 'white', borderColor: '#fde68a' }
     };
     return styles[status] || { backgroundColor: '#f3f4f6', color: '#374151', borderColor: '#d1d5db' };
   };
@@ -163,6 +162,9 @@ function GISMapping({ showOnlyMap }) {
       backgroundColor: '#ffffff',
       padding: '1.5rem 2rem',
       borderBottom: '1px solid #e5e7eb',
+      position: 'sticky',
+      top: 0,
+      zIndex: 10,
     },
     headerContent: {
       maxWidth: '1200px',
@@ -442,18 +444,13 @@ function GISMapping({ showOnlyMap }) {
     <div style={styles.container}>
       <style>{popupStyles}</style>
       
-      {!showOnlyMap && <MainSidebarWrapper />}
-
       {/* Header */}
       {!showOnlyMap && (
         <div style={styles.header}>
           <div style={styles.headerContent}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <div style={styles.headerIcon}>
-                <MapPin size={20} />
-              </div>
+            <div>
               <div>
-                <h1 style={styles.headerTitle}>Incident Mapping System</h1>
+                <h1 style={styles.headerTitle}>GIS Mapping</h1>
                 <p style={styles.headerSubtitle}>Real-time incident tracking and visualization</p>
               </div>
             </div>

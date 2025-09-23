@@ -306,3 +306,233 @@ body .app .header {
     transform: none;
   }
 }
+/* User Profile Dropdown Styles */
+.user-profile-dropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.profile-avatar {
+  width: 45px;
+  height: 45px;
+  border-radius: 50%;
+  border: 1px solid rgb(255, 255, 255);
+  background: linear-gradient(135deg, #ff7c7c 0%, #c21e12 100%);
+  color: white;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  position: relative;
+  overflow: hidden;
+}
+
+.profile-avatar:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.profile-avatar.active {
+  transform: scale(0.95);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.profile-avatar:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+/* Avatar spinner for loading state */
+.avatar-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: #ffffff;
+  animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Dropdown menu */
+.dropdown-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 220px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  z-index: 1000;
+  animation: slideDown 0.2s ease-out;
+  overflow: hidden;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Dropdown header */
+.dropdown-header {
+  padding: 16px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.dropdown-header .user-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dropdown-header .user-info strong {
+  font-weight: 600;
+  color: #2c3e50;
+  font-size: 14px;
+}
+
+.user-role-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  background: linear-gradient(135deg, #3498db, #2980b9);
+  color: white;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  width: fit-content;
+}
+
+/* Role-specific badge colors */
+.user-role-badge[data-role="Admin"] {
+  background: linear-gradient(135deg, #e74c3c, #c0392b);
+}
+
+.user-role-badge[data-role="Admintanod"] {
+  background: linear-gradient(135deg, #9b59b6, #8e44ad);
+}
+
+.user-role-badge[data-role="Tanod"] {
+  background: linear-gradient(135deg, #3498db, #2980b9);
+}
+
+.user-role-badge[data-role="Resident"] {
+  background: linear-gradient(135deg, #27ae60, #229954);
+}
+
+/* Dropdown divider */
+.dropdown-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.1), transparent);
+  margin: 0;
+}
+
+/* Dropdown items */
+.dropdown-item {
+  width: 100%;
+  padding: 12px 16px;
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: #2c3e50;
+  font-weight: 500;
+}
+
+.dropdown-item:hover {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  color: #2980b9;
+}
+
+.dropdown-item.logout-item:hover {
+  background: linear-gradient(135deg, #fee 0%, #fdd 100%);
+  color: #e74c3c;
+}
+
+.dropdown-icon {
+  width: 16px;
+  height: 16px;
+  opacity: 0.7;
+}
+
+.dropdown-item:hover .dropdown-icon {
+  opacity: 1;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .profile-avatar {
+    width: 40px;
+    height: 40px;
+    font-size: 12px;
+  }
+  
+  .dropdown-menu {
+    min-width: 200px;
+    right: -10px;
+  }
+  
+  .dropdown-header {
+    padding: 12px;
+  }
+  
+  .dropdown-item {
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+}
+
+/* Dark mode support (if you have dark mode) */
+@media (prefers-color-scheme: dark) {
+  .dropdown-menu {
+    background: #2c3e50;
+    border-color: rgba(255, 255, 255, 0.1);
+    color: white;
+  }
+  
+  .dropdown-header {
+    background: linear-gradient(135deg, #34495e 0%, #2c3e50 100%);
+    border-bottom-color: rgba(255, 255, 255, 0.1);
+  }
+  
+  .dropdown-header .user-info strong {
+    color: #ecf0f1;
+  }
+  
+  .dropdown-item {
+    color: #ecf0f1;
+  }
+  
+  .dropdown-item:hover {
+    background: linear-gradient(135deg, #34495e 0%, #3a536b 100%);
+    color: #3498db;
+  }
+  
+  .dropdown-item.logout-item:hover {
+    background: linear-gradient(135deg, #4a2c2c 0%, #5a3535 100%);
+    color: #e74c3c;
+  }
+}

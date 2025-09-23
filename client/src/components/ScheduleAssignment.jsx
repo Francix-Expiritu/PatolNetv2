@@ -189,22 +189,6 @@ const ScheduleAssignment = () => {
     person.USER?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleDelete = async (id) => {
-    try {
-      const response = await axios.delete(`${BASE_URL}/api/schedules/${id}`);
-
-      if (response.data.success) {
-        // Remove the deleted person from the state
-        setPersonnel(prev => prev.filter(p => p.ID !== id));
-      } else {
-        setError('Failed to delete schedule entry.');
-      }
-    } catch (err) {
-      console.error('Error deleting schedule entry:', err);
-      setError('An error occurred while deleting the schedule entry.');
-    }
-  };
-
   // Helper function to format datetime for display
   const formatDateTime = (dateTimeString) => {
     if (!dateTimeString) return "Not set";
@@ -334,18 +318,6 @@ const ScheduleAssignment = () => {
                         >
      
                           Add
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDelete(person.ID);
-                          }}
-                          className="btn btn-delete"
-                        >
-                          <svg className="btn-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                          Delete
                         </button>
                       </td>
                     </tr>

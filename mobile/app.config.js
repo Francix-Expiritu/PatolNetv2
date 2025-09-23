@@ -2,7 +2,7 @@ export default {
   expo: {
     jsEngine: 'hermes',
     name: 'PatrolNet',
-    slug: 'PatrolNet',
+    slug: 'mobile',
     version: '1.0.0',
     orientation: 'portrait',
     icon: './assets/images/new-icon.png',
@@ -14,12 +14,14 @@ export default {
       bundleIdentifier: "com.patrolnet.mobile" // ✅ required by EAS
     },
     android: {
+      usesCleartextTraffic: true,
       adaptiveIcon: {
         foregroundImage: './assets/images/new-icon.png',
         backgroundColor: '#ffffff',
       },
       edgeToEdgeEnabled: true,
       package: 'app.barangay.incidentreport',
+      permissions: ['ACCESS_NETWORK_STATE'],
       // By setting googleServicesFile to an empty string, we are explicitly telling Expo
       // not to use any Firebase configuration for this Android app.
       googleServicesFile: '',

@@ -1,6 +1,6 @@
 // Home.tsx
 import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Alert, Platform,Image} from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, Alert, Platform,Image, ScrollView} from "react-native";
 import { useRoute, RouteProp, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import axios from 'axios';
@@ -105,9 +105,8 @@ const Home: React.FC = () => {
       userRole={userData?.ROLE}  // Add this line
         />
 
-    <View style={styles.body}>
-      <Text style={styles.greeting}>Welcome back, {username}</Text>
-      <Text style={styles.subGreeting}>Your community safety network</Text>
+    <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+
       
 <View style={styles.logoContainer}>
   <Image
@@ -189,9 +188,9 @@ const Home: React.FC = () => {
 
       <View style={styles.statusContainer}>
         <View style={styles.statusDot} />
-        <Text style={styles.offlineText}>Connected via cellular network</Text>
+        <Text style={styles.offlineText}>Connected via localhost</Text>
       </View>
-    </View>
+    </ScrollView>
   </View>
 
   );
@@ -206,6 +205,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingTop: 20,
     paddingHorizontal: 20,
+    paddingBottom: 40,
   },
   greeting: {
     fontSize: 24,

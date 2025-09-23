@@ -474,17 +474,21 @@
 
 .cta-content h2 {
   font-size: 2.5rem;
-  font-weight: 700;
+  font-weight: 800;
   margin-bottom: 1rem;
+  color: var(--white);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
 }
 
 .cta-content p {
-  font-size: 1.1rem;
+  font-size: 1.2rem;
   margin-bottom: 2.5rem;
-  opacity: 0.9;
+  opacity: 1;
   max-width: 600px;
   margin-left: auto;
   margin-right: auto;
+  color: var(--white);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
 .cta-buttons {
@@ -492,6 +496,20 @@
   gap: 1rem;
   justify-content: center;
   flex-wrap: wrap;
+}
+
+/* Redesigned CTA button to be more prominent on the red background */
+.cta-buttons .btn-primary {
+  background: var(--white);
+  color: var(--primary-red);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.cta-buttons .btn-primary:hover {
+  background: var(--gray-100);
+  color: var(--dark-red);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
 }
 
 /* Animations */

@@ -66,9 +66,7 @@ function Dashboard() {
   }, []);
 
   const handleCardClick = (route) => {
-    // In a real app, this would use React Router's useNavigate
-    console.log(`Navigating to: ${route}`);
-    alert(`Would navigate to: ${route}`);
+
   };
 
   const dashboardCards = [
@@ -77,9 +75,9 @@ function Dashboard() {
       title: 'Incident Reports',
       icon: '🚨',
       count: incidentCount,
-      route: '/incident-report',
+
       description: 'Monitor and manage all reported incidents in real-time',
-      color: 'red',
+     
       priority: 'high'
     },
     {
@@ -87,9 +85,9 @@ function Dashboard() {
       title: 'Scheduling & Assessment',
       icon: '🗓️',
       count: schedulingCount,
-      route: '/scheduling',
+  
       description: 'Coordinate patrol schedules and security assessments',
-      color: 'blue',
+      
       priority: 'medium'
     },
     {
@@ -97,9 +95,9 @@ function Dashboard() {
       title: 'GIS Mapping',
       icon: '🗺️',
       count: gisMappingCount,
-      route: '/gis-mapping',
+
       description: 'Visualize incidents and patrol routes on interactive maps',
-      color: 'green',
+     
       priority: 'medium'
     },
     {
@@ -107,9 +105,9 @@ function Dashboard() {
       title: 'Patrol Logs',
       icon: '📝',
       count: patrolLogsCount,
-      route: '/patrol-logs',
+
       description: 'Review and analyze daily patrol activities and reports',
-      color: 'purple',
+   
       priority: 'medium'
     },
     {
@@ -117,9 +115,9 @@ function Dashboard() {
       title: 'Activities',
       icon: '⭐',
       count: activitiesCount,
-      route: '/activities',
+ 
       description: 'Manage community activities and public announcements',
-      color: 'orange',
+    
       priority: 'low'
     },
     {
@@ -127,9 +125,9 @@ function Dashboard() {
       title: 'Accounts Management',
       icon: '👥',
       count: accountsCount,
-      route: '/accounts',
+  
       description: 'Oversee all user accounts, roles, and permissions',
-      color: 'teal',
+  
       priority: 'high'
     }
   ];

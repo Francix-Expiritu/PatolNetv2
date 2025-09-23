@@ -57,6 +57,13 @@ const About = () => {
     }
   ];
 
+  const sectionTitleStyle = {
+    fontSize: '2.5rem',
+    color: 'black',
+    fontWeight: 'bold',
+    backgroundColor: 'transparent',
+  };
+
   return (
     <div className="about-container">
       {/* Hero Section */}
@@ -94,7 +101,7 @@ const About = () => {
       {/* Mission Section */}
       <section className="mission-section">
         <div className="container">
-          <h2 className="section-title">Our Purpose</h2>
+          <h2 className="section-title" style={sectionTitleStyle}>Our Purpose</h2>
           
           <div className="tabs">
             <div className="tab-nav">
@@ -155,7 +162,7 @@ const About = () => {
       {/* Features Section */}
       <section className="features-section" data-animate id="features">
         <div className="container">
-          <h2 className="section-title">What Makes Us Different</h2>
+          <h2 className="section-title" style={sectionTitleStyle}>What Makes Us Different</h2>
           <div className={`features-grid ${isVisible.features ? 'visible' : ''}`}>
             {features.map((feature, index) => (
               <div key={index} className="feature-card">

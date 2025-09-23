@@ -5,6 +5,7 @@
 .admin-announcements-container {
   min-height: 100vh;
   background: linear-gradient(135deg, #ffffff 0%, #ffffff 50%, #ffffff 100%);
+  font-family: 'Inter', sans-serif;
    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
@@ -461,6 +462,11 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
   margin-bottom: 1.5rem;
+}
+
+.announcement-posted-by {
+  color: #6b7280;
+  font-size: 0.875rem;
 }
 
 /* Announcement Actions */

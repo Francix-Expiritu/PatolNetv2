@@ -213,14 +213,14 @@ const RegisterModal = ({ show, onClose }) => {
             name: `${formData.firstName} ${formData.lastName}`,
             email: formData.email,
             address: formData.address,
-            emailVerified: true // Since we verified the email
+            status: 'Pending' // Set status to Pending for admin approval
           }),
         });
 
         const data = await response.json();
 
         if (data.success) {
-          alert("Account created successfully!");
+          alert("Account created successfully! Your account is now pending approval.");
           onClose();
         } else {
           alert(`Registration failed: ${data.message}`);
@@ -234,14 +234,19 @@ const RegisterModal = ({ show, onClose }) => {
     }
   };
 
-  const getStepTitle = () => {
-    switch(currentStep) {
-      case 1: return 'Personal Information';
-      case 2: return 'Account Security';
-      case 3: return 'Role & Confirmation';
-      default: return 'Create Account';
-    }
-  };
+const getStepTitle = () => {
+  switch (currentStep) {
+    case 1:
+      return <span style={{ color: "#2c3e50" }}>Personal Information</span>;
+    case 2:
+      return <span style={{ color: "#16a085" }}>Account Security</span>;
+    case 3:
+      return <span style={{ color: "#2980b9" }}>Role & Confirmation</span>;
+    default:
+      return <span style={{ color: "#8e44ad" }}>Create Account</span>;
+  }
+};
+
 
   return (
     <div className="modal-overlay">
@@ -253,7 +258,7 @@ const RegisterModal = ({ show, onClose }) => {
               <FaUserPlus />
             </div>
             <div>
-              <h2>Create New Account</h2>
+              <h2 style={{ color: "#2c3e50" }}>Create New Account</h2>
               <p>{getStepTitle()}</p>
             </div>
           </div>

@@ -351,14 +351,10 @@ const TanodSidebar = ({ currentUser, onLogout }) => {
                   <div className="user-name">
                     {userProfile?.NAME || localStorage.getItem('username') || 'User'}
                   </div>
-                  <div className="user-role">
-                    Tanod
-                  </div>
                 </div>
               )}
               {!isCollapsed && (
                 <svg className="dropdown-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
                 </svg>
               )}
             </button>

@@ -406,14 +406,10 @@ const AdminSidebar = ({ currentUser, onLogout }) => {
                   <div className="user-name">
                     {userProfile?.NAME || localStorage.getItem('username') || 'User'}
                   </div>
-                  <div className="user-role">
-                    Admin
-                  </div>
                 </div>
               )}
               {!isCollapsed && (
                 <svg className="dropdown-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
                 </svg>
               )}
             </button>
@@ -428,9 +424,7 @@ const AdminSidebar = ({ currentUser, onLogout }) => {
                   Profile
                 </button>
                 <button onClick={handleLogout} className="dropdown-item logout">
-                  <svg className="dropdown-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                  </svg>
+
                   Logout
                 </button>
               </div>

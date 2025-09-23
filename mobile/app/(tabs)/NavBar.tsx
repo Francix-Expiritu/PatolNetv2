@@ -13,7 +13,7 @@ import {
   Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "./app";
 import axios from "axios";
@@ -56,50 +56,88 @@ const NavBar: React.FC<NavBarProps> = ({ username, userImage, userRole }) => {
   const [lastLogId, setLastLogId] = useState<number | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const sidebarAnim = useRef(new Animated.Value(-screenWidth * 0.5)).current;
+  const [unreadLogCount, setUnreadLogCount] = useState(0);
+  const [unreadResidentLogCount, setUnreadResidentLogCount] = useState(0);
+  const [unreadPatrolLogCount, setUnreadPatrolLogCount] = useState(0);
+  const [lastResidentLogId, setLastResidentLogId] = useState<number | null>(null);
+  const [isResidentLogInitialized, setIsResidentLogInitialized] = useState(false);
 
   const [lastIncidentId, setLastIncidentId] = useState<number | null>(null);
   const [incidentNotifications, setIncidentNotifications] = useState<IncidentReport[]>([]);
   const [isIncidentInitialized, setIsIncidentInitialized] = useState(false);
   const [unreadIncidentIds, setUnreadIncidentIds] = useState<Set<number>>(new Set());
+  const [lastPatrolLogId, setLastPatrolLogId] = useState<number | null>(null);
+  const [isPatrolLogInitialized, setIsPatrolLogInitialized] = useState(false);
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
- const [filterStatus, setFilterStatus] = useState<'all' | 'assigned' | 'resolved'>('all');
-  // Load saved state from AsyncStorage
+  const [filterStatus, setFilterStatus] = useState<'all' | 'assigned' | 'resolved'>('all');
+
+  // Calculate total notification count from all sources - FIXED
   useEffect(() => {
-    const loadSavedState = async () => {
-      if (!username) return;
-      
-      try {
-        const savedLogId = await AsyncStorage.getItem(`lastLogId_${username}`);
-        const savedIncidentId = await AsyncStorage.getItem(`lastIncidentId_${username}`);
-        const savedUnreadIds = await AsyncStorage.getItem(`unreadIncidentIds_${username}`);
-        
-        if (savedLogId) {
-          setLastLogId(parseInt(savedLogId));
-          setIsInitialized(true);
-        }
-        
-        if (savedIncidentId) {
-          setLastIncidentId(parseInt(savedIncidentId));
-          setIsIncidentInitialized(true);
-        }
-        
-        if (savedUnreadIds) {
-          const unreadIds: number[] = JSON.parse(savedUnreadIds);
-          setUnreadIncidentIds(new Set<number>(unreadIds));
-        }
-        
-        console.log('Loaded saved state - LogId:', savedLogId, 'IncidentId:', savedIncidentId, 'UnreadIds:', savedUnreadIds);
-      } catch (error) {
-        console.error('Error loading saved state:', error);
-      }
-    };
+    // Count unread unresolved incidents
+    const unreadUnresolvedIncidentsCount = Array.from(unreadIncidentIds).filter(incidentId => {
+      const incident = incidentNotifications.find(inc => inc.id === incidentId);
+      return incident && incident.status !== 'Resolved';
+    }).length;
     
-    loadSavedState();
-  }, [username]);
+    // Total count from all notification sources
+    const totalCount = unreadLogCount + unreadResidentLogCount + unreadPatrolLogCount + unreadUnresolvedIncidentsCount;
+    setNotificationCount(totalCount);
+    
+    console.log('Notification count updated:', {
+      unreadLogCount,
+      unreadResidentLogCount,
+      unreadPatrolLogCount,
+      unreadUnresolvedIncidentsCount,
+      totalCount
+    });
+  }, [unreadLogCount, unreadResidentLogCount, unreadPatrolLogCount, unreadIncidentIds, incidentNotifications]);
+
+  // When the screen comes into focus, reload the "last seen" state from storage.
+  // This ensures that if notifications were marked as read on another screen,
+  // the badge count here is updated correctly.
+  useFocusEffect(
+    React.useCallback(() => {
+      const loadSavedState = async () => {
+        if (!username) return;
+        
+        try {
+          const savedLogId = await AsyncStorage.getItem(`lastLogId_${username}`);
+          const savedResidentLogId = await AsyncStorage.getItem(`lastResidentLogId_${username}`);
+          const savedIncidentId = await AsyncStorage.getItem(`lastIncidentId_${username}`);
+          const savedPatrolLogId = await AsyncStorage.getItem(`lastPatrolLogId_${username}`);
+          const savedUnreadIds = await AsyncStorage.getItem(`unreadIncidentIds_${username}`);
+          
+          // Reset counts before re-evaluating
+          setUnreadLogCount(0);
+          setUnreadResidentLogCount(0);
+          setUnreadPatrolLogCount(0);
+
+          if (savedLogId) setLastLogId(parseInt(savedLogId));
+          if (savedResidentLogId) setLastResidentLogId(parseInt(savedResidentLogId));
+          if (savedIncidentId) setLastIncidentId(parseInt(savedIncidentId));
+          if (savedPatrolLogId) setLastPatrolLogId(parseInt(savedPatrolLogId));
+          
+          if (savedUnreadIds) {
+            const unreadIds: number[] = JSON.parse(savedUnreadIds);
+            setUnreadIncidentIds(new Set<number>(unreadIds));
+          } else {
+            // If nothing is in storage, reset the set
+            setUnreadIncidentIds(new Set<number>());
+          }
+          
+          console.log('NavBar focused, reloaded saved state.');
+        } catch (error) {
+          console.error('Error loading saved state on focus:', error);
+        }
+      };
+      
+      loadSavedState();
+    }, [username])
+  );
 
   // Save state to AsyncStorage
-  const saveState = async (logId?: number, incidentId?: number, unreadIds?: Set<number>) => {
+  const saveState = async (logId?: number, incidentId?: number, unreadIds?: Set<number>, residentLogId?: number, patrolLogId?: number) => {
     if (!username) return;
     
     try {
@@ -112,45 +150,40 @@ const NavBar: React.FC<NavBarProps> = ({ username, userImage, userRole }) => {
       if (unreadIds !== undefined) {
         await AsyncStorage.setItem(`unreadIncidentIds_${username}`, JSON.stringify([...unreadIds]));
       }
+      if (residentLogId !== undefined) {
+        await AsyncStorage.setItem(`lastResidentLogId_${username}`, residentLogId.toString());
+      }
+      if (patrolLogId !== undefined) {
+        await AsyncStorage.setItem(`lastPatrolLogId_${username}`, patrolLogId.toString());
+      }
     } catch (error) {
       console.error('Error saving state:', error);
     }
   };
 
-  // Fetch user logs and check for new notifications
+  // Fetch user logs and check for new notifications - FIXED counting logic
   const fetchUserLogs = async () => {
     if (!username) return;
     
     try {
       const response = await axios.get(`${BASE_URL}/api/logs/${username}`);
-      const logs = response.data;
+      const logs: LogEntry[] = response.data || [];
       
-      console.log('Fetched logs for user:', username, 'Count:', logs.length);
-      
-      if (logs && logs.length > 0) {
-        const latestLog = logs[0]; // Most recent log (ordered by TIME DESC) 
-        
-        console.log('Latest log ID:', latestLog.ID, 'Last known ID:', lastLogId);
-        
-        // If this is the first time loading and no saved state
+      if (logs.length > 0) {
+        // Always calculate the number of logs with an ID greater than the last one seen.
+        const newLogs = logs.filter(log => log.ID > (lastLogId || 0));
+        setUnreadLogCount(newLogs.length);
+        setNotifications(logs.slice(0, 5)); // Update with latest logs
+        console.log(`User logs check: ${newLogs.length} unread. (Last seen ID: ${lastLogId})`);
+
+        // If this is the very first fetch and no ID is stored, we just set the initial state.
         if (!isInitialized && lastLogId === null) {
-          setLastLogId(latestLog.ID);
-          setNotifications(logs.slice(0, 5)); // Show last 5 logs
           setIsInitialized(true);
-          saveState(latestLog.ID, undefined, undefined);
-          console.log('Initialized with latest log ID:', latestLog.ID);
-        } else if (latestLog.ID > (lastLogId || 0)) {
-          // New log detected - show notification
-          const newLogsCount = logs.filter((log: LogEntry) => log.ID > (lastLogId || 0)).length;
-          setNotificationCount(prev => prev + newLogsCount);
-          setLastLogId(latestLog.ID);
-          setNotifications(logs.slice(0, 5)); // Update with latest logs
-          saveState(latestLog.ID, undefined, undefined);
-          
-          console.log('New log detected! New logs count:', newLogsCount);
-          
-          // Show alert for new notification
-          const notificationMessage = getLogDisplayText(latestLog);
+        } 
+        // If it is initialized and there are genuinely new logs, show an alert.
+        else if (isInitialized && newLogs.length > 0) {
+          console.log(`New user log detected! Alerting for: ${newLogs[0].ACTION}`);
+          const notificationMessage = getLogDisplayText(newLogs[0]);
           Alert.alert(
             "New Schedule Logged",
             notificationMessage,
@@ -161,7 +194,7 @@ const NavBar: React.FC<NavBarProps> = ({ username, userImage, userRole }) => {
           );
         }
       } else {
-        console.log('No logs found for user:', username);
+        setUnreadLogCount(0); // No logs, so no unread.
       }
     } catch (error) {
       console.error("Error fetching user logs:", error);
@@ -169,7 +202,83 @@ const NavBar: React.FC<NavBarProps> = ({ username, userImage, userRole }) => {
     }
   };
 
-  // Fetch assigned incidents and check for new assignments
+  // Fetch resident logs and check for new community alerts - FIXED counting logic
+  const fetchResidentLogs = async () => {
+    if (!username || userRole !== 'Resident') return;
+
+    try {
+      const response = await axios.get(`${BASE_URL}/api/logs_resident/${username}`);
+      const residentLogs: LogEntry[] = response.data || [];
+
+      if (residentLogs.length > 0) {
+        // Always calculate the number of logs with an ID greater than the last one seen.
+        const newLogs = residentLogs.filter(log => log.ID > (lastResidentLogId || 0));
+        setUnreadResidentLogCount(newLogs.length);
+        console.log(`Resident logs check: ${newLogs.length} unread. (Last seen ID: ${lastResidentLogId})`);
+
+        // If this is the very first fetch and no ID is stored, we just set the initial state.
+        if (!isResidentLogInitialized && lastResidentLogId === null) {
+          setIsResidentLogInitialized(true);
+        } 
+        // If it is initialized and there are genuinely new logs, show an alert.
+        else if (isResidentLogInitialized && newLogs.length > 0) {
+          console.log(`New resident log detected! Alerting for: ${newLogs[0].ACTION}`);
+          Alert.alert(
+            "Community Alert",
+            newLogs[0].ACTION,
+            [
+              { text: "View All", onPress: () => handleNotificationPress() },
+              { text: "Dismiss", style: "cancel" }
+            ]
+          );
+        }
+      } else {
+        setUnreadResidentLogCount(0); // No logs, so no unread.
+      }
+    } catch (error) {
+      console.error("Error fetching resident logs:", error);
+    }
+  };
+
+  // Fetch patrol logs and check for new incident reports (for Tanods) - FIXED counting logic
+  const fetchPatrolLogs = async () => {
+    if (!username || userRole !== 'Tanod') return;
+
+    try {
+      const response = await axios.get(`${BASE_URL}/api/logs_patrol/${username}`);
+      const patrolLogs: LogEntry[] = response.data || [];
+
+      if (patrolLogs.length > 0) {
+        // Always calculate the number of logs with an ID greater than the last one seen.
+        const newLogs = patrolLogs.filter(log => log.ID > (lastPatrolLogId || 0));
+        setUnreadPatrolLogCount(newLogs.length);
+        console.log(`Patrol logs check: ${newLogs.length} unread. (Last seen ID: ${lastPatrolLogId})`);
+
+        // If this is the very first fetch and no ID is stored, we just set the initial state.
+        if (!isPatrolLogInitialized && lastPatrolLogId === null) {
+          setIsPatrolLogInitialized(true);
+        } 
+        // If it is initialized and there are genuinely new logs, show an alert.
+        else if (isInitialized && newLogs.length > 0) {
+          console.log(`New patrol log detected! Alerting for: ${newLogs[0].ACTION}`);
+          Alert.alert(
+            "New Incident Report",
+            newLogs[0].ACTION,
+            [
+              { text: "View All", onPress: () => handleNotificationPress() },
+              { text: "Dismiss", style: "cancel" }
+            ]
+          );
+        }
+      } else {
+        setUnreadPatrolLogCount(0); // No logs, so no unread.
+      }
+    } catch (error) {
+      console.error("Error fetching patrol logs:", error);
+    }
+  };
+
+  // Fetch assigned incidents and check for new assignments - FIXED counting logic
   const fetchAssignedIncidents = async () => {
     if (!username) return;
     
@@ -186,35 +295,35 @@ const NavBar: React.FC<NavBarProps> = ({ username, userImage, userRole }) => {
         
         // If this is the first time loading and no saved state
         if (!isIncidentInitialized && lastIncidentId === null) {
-          setIncidentNotifications(incidents.slice(0, 5)); // Show last 5 incidents
+          setIncidentNotifications(incidents); // Store all incidents for accurate counting
           setIsIncidentInitialized(true);
           
-          // Mark only UNRESOLVED incidents as unread for first-time users
+          // For first-time users, only mark UNRESOLVED incidents as unread
           const unresolvedIncidents = incidents.filter((incident: IncidentReport) => incident.status !== 'Resolved');
           const newUnreadIds = new Set<number>(unresolvedIncidents.map((incident: IncidentReport) => incident.id));
           setUnreadIncidentIds(newUnreadIds);
-          saveState(undefined, undefined, newUnreadIds);
+          setLastIncidentId(latestIncident.id); // Set the last incident ID on initialization
+          saveState(undefined, latestIncident.id, newUnreadIds, undefined, undefined);
           
-          console.log('Initialized incident notifications with unread UNRESOLVED IDs:', [...newUnreadIds]);
+          console.log('Initialized incident notifications. Unread UNRESOLVED IDs:', [...newUnreadIds]);
         } else if (isIncidentInitialized && latestIncident.id > (lastIncidentId || 0)) {
           // New incident assignment detected
           const newIncidents = incidents.filter((incident: IncidentReport) => incident.id > (lastIncidentId || 0));
           
           // Add new incident IDs to unread set ONLY if they are unresolved
           const updatedUnreadIds = new Set(unreadIncidentIds);
-          newIncidents.forEach((incident: IncidentReport) => {
-            if (incident.status !== 'Resolved') {
-              updatedUnreadIds.add(incident.id);
-            }
+          const newUnresolvedIncidents = newIncidents.filter((incident: IncidentReport) => incident.status !== 'Resolved');
+          
+          newUnresolvedIncidents.forEach((incident: IncidentReport) => {
+            updatedUnreadIds.add(incident.id);
           });
           
           setUnreadIncidentIds(updatedUnreadIds);
           setLastIncidentId(latestIncident.id);
-          setIncidentNotifications(incidents.slice(0, 5)); // Update with latest incidents
-          saveState(undefined, latestIncident.id, updatedUnreadIds);
+          setIncidentNotifications(incidents); // Update with all incidents
+          saveState(undefined, latestIncident.id, updatedUnreadIds, undefined, undefined);
           
           // Only show alert for unresolved new incidents
-          const newUnresolvedIncidents = newIncidents.filter((incident: IncidentReport) => incident.status !== 'Resolved');
           if (newUnresolvedIncidents.length > 0) {
             console.log('New unresolved incident assignment detected! Count:', newUnresolvedIncidents.length);
             
@@ -231,7 +340,7 @@ const NavBar: React.FC<NavBarProps> = ({ username, userImage, userRole }) => {
           }
         } else if (isIncidentInitialized) {
           // Update notifications list even if no new incidents
-          setIncidentNotifications(incidents.slice(0, 5));
+          setIncidentNotifications(incidents);
           
           // Remove resolved incidents from unread set AND incidents no longer assigned
           const activeUnresolvedIncidentIds = new Set(
@@ -243,7 +352,8 @@ const NavBar: React.FC<NavBarProps> = ({ username, userImage, userRole }) => {
           
           if (updatedUnreadIds.size !== unreadIncidentIds.size) {
             setUnreadIncidentIds(updatedUnreadIds);
-            saveState(undefined, undefined, updatedUnreadIds);
+            saveState(undefined, undefined, updatedUnreadIds, undefined, undefined);
+            console.log('Updated unread incident IDs:', [...updatedUnreadIds]);
           }
         }
       } else {
@@ -253,12 +363,9 @@ const NavBar: React.FC<NavBarProps> = ({ username, userImage, userRole }) => {
         if (unreadIncidentIds.size > 0) {
           const emptySet = new Set<number>();
           setUnreadIncidentIds(emptySet);
-          saveState(undefined, undefined, emptySet);
+          saveState(undefined, undefined, emptySet, undefined, undefined);
         }
       }
-      
-      // Update notification count based on unread UNRESOLVED incidents only
-      updateNotificationCount();
       
     } catch (error) {
       console.error("Error fetching assigned incidents:", error);
@@ -266,25 +373,13 @@ const NavBar: React.FC<NavBarProps> = ({ username, userImage, userRole }) => {
     }
   };
 
-  // Update notification count based on unread UNRESOLVED incidents only
-  const updateNotificationCount = () => {
-    // Filter unread incidents to only include unresolved ones
-    const unreadUnresolvedIncidents = incidentNotifications.filter(incident => 
-      unreadIncidentIds.has(incident.id) && incident.status !== 'Resolved'
-    );
-    
-    const unreadCount = unreadUnresolvedIncidents.length;
-    setNotificationCount(unreadCount);
-    console.log('Updated notification count to:', unreadCount, 'unresolved incidents');
-  };
-
-  // Helper function to format incident display text - CHANGED "Header Type" to "Incident Type"
+  // Helper function to format incident display text
   const getIncidentDisplayText = (incident: IncidentReport) => {
-          return `Incident Type: ${incident.type}
-      Reported By: ${incident.reported_by}
-      Location: ${incident.location}
-      Status: ${incident.status}`;
-        };
+    return `Incident Type: ${incident.type}
+Reported By: ${incident.reported_by}
+Location: ${incident.location}
+Status: ${incident.status}`;
+  };
 
   // Helper function to format log display text
   const getLogDisplayText = (log: LogEntry) => {
@@ -308,7 +403,7 @@ const NavBar: React.FC<NavBarProps> = ({ username, userImage, userRole }) => {
     return `${date} ${time}\n${action}${log.LOCATION ? `\nLocation: ${log.LOCATION}` : ''}`;
   };
 
-  // Function to handle incident resolution - UPDATED to include resolved_at
+  // Function to handle incident resolution
   const handleResolveIncident = async (incidentId: number) => {
     try {
       const response = await axios.put(`${BASE_URL}/api/incidents/${incidentId}/resolve`, {
@@ -320,7 +415,7 @@ const NavBar: React.FC<NavBarProps> = ({ username, userImage, userRole }) => {
         const updatedUnreadIds = new Set(unreadIncidentIds);
         updatedUnreadIds.delete(incidentId);
         setUnreadIncidentIds(updatedUnreadIds);
-        saveState(undefined, undefined, updatedUnreadIds);
+        saveState(undefined, undefined, updatedUnreadIds, undefined, undefined);
         
         // Update local incident notifications to mark as resolved
         setIncidentNotifications(prev => 
@@ -365,7 +460,7 @@ const NavBar: React.FC<NavBarProps> = ({ username, userImage, userRole }) => {
       const updatedUnreadIds = new Set(unreadIncidentIds);
       updatedUnreadIds.delete(incident.id);
       setUnreadIncidentIds(updatedUnreadIds);
-      saveState(undefined, undefined, updatedUnreadIds);
+      saveState(undefined, undefined, updatedUnreadIds, undefined, undefined);
     }
     
     Alert.alert(
@@ -394,29 +489,47 @@ const NavBar: React.FC<NavBarProps> = ({ username, userImage, userRole }) => {
     );
   };
 
-  // Polling effect for both logs and incidents - INCREASED frequency for better responsiveness
+  // Function to mark notifications as read when visiting notifications page
+  const markNotificationsAsRead = () => {
+    // Reset all unread counts
+    setUnreadLogCount(0);
+    setUnreadResidentLogCount(0);
+    setUnreadPatrolLogCount(0);
+    
+    // Clear unread incident IDs
+    const emptySet = new Set<number>();
+    setUnreadIncidentIds(emptySet);
+    saveState(undefined, undefined, emptySet, undefined, undefined);
+  };
+
+  // Polling effect for both logs and incidents
   useEffect(() => {
     if (username) {
       console.log('Setting up polling for user:', username);
       fetchUserLogs(); // Initial fetch for logs
-      fetchAssignedIncidents(); // Initial fetch for incidents
+      fetchAssignedIncidents(); // Initial fetch for incidents      
+      if (userRole === 'Resident') { 
+        fetchResidentLogs(); 
+      } else if (userRole === 'Tanod') {
+        fetchPatrolLogs();
+      }
       
       const interval = setInterval(() => {
         fetchUserLogs();
         fetchAssignedIncidents(); // Poll for incident assignments
-      }, 10000); // Check every 10 seconds (reduced from 15 seconds) 
+        if (userRole === 'Resident') {
+          fetchResidentLogs();
+        } else if (userRole === 'Tanod') {
+          fetchPatrolLogs();
+        }
+      }, 10000); // Check every 10 seconds
       
       return () => {
         console.log('Cleaning up polling interval');
         clearInterval(interval);
       };
     }
-  }, [username, lastLogId, isInitialized, lastIncidentId, isIncidentInitialized]);
-
-  // Update notification count whenever unread incidents or incident notifications change
-  useEffect(() => {
-    updateNotificationCount();
-  }, [unreadIncidentIds, incidentNotifications]);
+  }, [username, userRole, lastLogId, isInitialized, lastIncidentId, isIncidentInitialized, lastResidentLogId, isResidentLogInitialized, lastPatrolLogId, isPatrolLogInitialized]);
 
   useEffect(() => {
     Animated.timing(sidebarAnim, {
@@ -428,17 +541,8 @@ const NavBar: React.FC<NavBarProps> = ({ username, userImage, userRole }) => {
 
   // Handle notification press to navigate to notifications page
   const handleNotificationPress = () => {
-    // Mark all current unresolved incidents as read when notification panel is opened
-    const unresolvedIncidentIds = incidentNotifications
-      .filter(incident => incident.status !== 'Resolved')
-      .map(incident => incident.id);
-    
-    const updatedUnreadIds = new Set([...unreadIncidentIds].filter(id => !unresolvedIncidentIds.includes(id)));
-    
-    if (updatedUnreadIds.size !== unreadIncidentIds.size) {
-      setUnreadIncidentIds(updatedUnreadIds);
-      saveState(undefined, undefined, updatedUnreadIds);
-    }
+    // Mark notifications as read when navigating to notifications page
+    markNotificationsAsRead();
     
     // Navigate to notifications page with both logs and incidents
     navigation.navigate("Notifications", { 
@@ -462,42 +566,43 @@ const NavBar: React.FC<NavBarProps> = ({ username, userImage, userRole }) => {
       )}
 
       <Animated.View style={[styles.sidebar, { left: sidebarAnim }]}>
-      <View style={styles.sidebarHeader}>
-  <Text style={styles.sidebarTitle}>Patrol Net</Text>
-  {userRole === "Resident" && (
-    <TouchableOpacity onPress={() => setSidebarVisible(false)}>
-      <Ionicons name="arrow-back" size={24} color="#fff" />
-    </TouchableOpacity>
-  )}
-</View>
-      <View style={{ height: 13 }} />
+        <View style={styles.sidebarHeader}>
+          <Text style={styles.sidebarTitle}>Patrol Net</Text>
+          {userRole === "Resident" && (
+            <TouchableOpacity onPress={() => setSidebarVisible(false)}>
+              <Ionicons name="arrow-back" size={24} color="#fff" />
+            </TouchableOpacity>
+          )}
+        </View>
+        <View style={{ height: 13 }} />
         <TouchableOpacity
+          style={styles.sidebarItem}
+          onPress={() => {
+            setSidebarVisible(false);
+            navigation.navigate("IncidentReport", { username: username ?? "" });
+          }}
+        >
+          <Text style={styles.sidebarItemText}>Report Incident</Text>
+        </TouchableOpacity>
+
+        {/* Only show TIME-IN button if user is not a Resident */}
+        {userRole !== "Resident" && (
+          <TouchableOpacity 
             style={styles.sidebarItem}
             onPress={() => {
               setSidebarVisible(false);
-              navigation.navigate("IncidentReport", { username: username ?? "" });
+              navigation.navigate("TimeIn", { username: username ?? "" });
             }}
           >
-            <Text style={styles.sidebarItemText}>Report Incident</Text>
+            <Text style={styles.sidebarItemText}>TIME-IN</Text>
           </TouchableOpacity>
-
-        {/* Only show TIME-IN button if user is not a Resident */}
-            {userRole !== "Resident" && (
-              <TouchableOpacity 
-                style={styles.sidebarItem}
-                onPress={() => {
-                  setSidebarVisible(false);
-                  navigation.navigate("TimeIn", { username: username ?? "" });
-                }}
-              >
-                <Text style={styles.sidebarItemText}>TIME-IN</Text>
-              </TouchableOpacity>
-            )}
+        )}
       </Animated.View>
 
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => setSidebarVisible(true)}>
-          <Ionicons name="menu" size={24} color="#fff" />
+        <TouchableOpacity style={styles.logoContainer} onPress={() => setSidebarVisible(true)}>
+          <Image source={require('./new-icon.png')} style={styles.logo} />
+          <Text style={styles.logoText}>PatrolNet</Text>
         </TouchableOpacity>
 
         <View style={styles.headerRight}>
@@ -509,7 +614,7 @@ const NavBar: React.FC<NavBarProps> = ({ username, userImage, userRole }) => {
             {notificationCount > 0 && (
               <View style={styles.badge}>
                 <Text style={styles.badgeText}>
-                  {notificationCount > 99 ? '99+' : notificationCount}
+                  {notificationCount > 99 ? '99+' : notificationCount.toString()}
                 </Text>
               </View>
             )}
@@ -533,33 +638,33 @@ const NavBar: React.FC<NavBarProps> = ({ username, userImage, userRole }) => {
 
         {userMenuVisible && (
           <View style={styles.userMenu}>
-  <TouchableOpacity
-  style={styles.userMenuItem}
-  onPress={() => {
-              setUserMenuVisible(false);
-              navigation.navigate("Profile", { username: username ?? "" });
-            }}
-          >
-            <View style={{ flexDirection: "row", alignItems: "center" }}>
-              <Ionicons name="person-outline" size={20} color="#333" style={{ marginRight: 8 }} />
-              <Text style={styles.userMenuText}>Profile</Text>
-            </View>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.userMenuItem}
-            onPress={() => {
-              setUserMenuVisible(false);
-              navigation.reset({
-                index: 0,
-                routes: [{ name: "Login" }],
-              });
-            }}
-          >
-            <View style={{ flexDirection: "row", alignItems: "center" }}>
-              <Ionicons name="log-out-outline" size={20} color="#333" style={{ marginRight: 8 }} />
-              <Text style={styles.userMenuText}>Logout</Text>
-            </View>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.userMenuItem}
+              onPress={() => {
+                setUserMenuVisible(false);
+                navigation.navigate("Profile", { username: username ?? "" });
+              }}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <Ionicons name="person-outline" size={20} color="#333" style={{ marginRight: 8 }} />
+                <Text style={styles.userMenuText}>Profile</Text>
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.userMenuItem}
+              onPress={() => {
+                setUserMenuVisible(false);
+                navigation.reset({
+                  index: 0,
+                  routes: [{ name: "Login" }],
+                });
+              }}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <Ionicons name="log-out-outline" size={20} color="#333" style={{ marginRight: 8 }} />
+                <Text style={styles.userMenuText}>Logout</Text>
+              </View>
+            </TouchableOpacity>
           </View>
         )}
       </View>
@@ -577,6 +682,21 @@ const styles = StyleSheet.create({
     backgroundColor: "#555",
     paddingBottom: 10,
     zIndex: 3,
+  },
+  logoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  logo: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+  },
+  logoText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 20,
   },
   headerTitle: { fontWeight: "bold", fontSize: 18, color: "#fff" },
   headerRight: {

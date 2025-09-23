@@ -92,21 +92,28 @@
   border-radius: 12px;
   font-size: 12px;
   font-weight: 600;
+  background-color: #f3f4f6; /* Default light gray background */
+  color: #374151; /* Dark gray text for good contrast */
 }
 
 .status-yellow {
-  background: #fff3cd;
-  color: #856404;
+  background: #a16207;
+  color: white;
 }
 
 .status-blue {
-  background: #cce5ff;
-  color: #004085;
+  background: #dbeafe; /* Light blue */
+  color: #1e40af;      /* Dark blue */
 }
 
 .status-green {
-  background: #d4edda;
-  color: #155724;
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.status-red {
+  background-color: #fee2e2; /* Light red for danger/cancelled status */
+  color: #991b1b; /* Dark red for high contrast */
 }
 
 .btn {

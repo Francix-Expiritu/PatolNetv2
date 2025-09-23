@@ -23,7 +23,7 @@
 }
 
 .page-title {
-  font-size: 1.75rem;
+  font-size: 2.75rem;
   font-weight: bold;
   display: flex;
   align-items: center;
@@ -33,6 +33,7 @@
 
 .title-icon {
   margin-right: 0.75rem;
+
 }
 
 .page-subtitle {

@@ -3,12 +3,12 @@
 }
 
 .user-dashboard h2 {
-  color: #333;
+  
   margin-bottom: 10px;
 }
 
 .user-dashboard p {
-  color: #666;
+  color: #acabab;
   margin-bottom: 30px;
   line-height: 1.6;
 }
@@ -16,7 +16,6 @@
 .dashboard-section {
   background-color: #f9f9f9;
   border-radius: 8px;
-  margin-bottom: 20px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 

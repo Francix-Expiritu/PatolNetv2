@@ -1,0 +1,264 @@
+/* Modal Overlay */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 50;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Modal Box */
+.modal-content {
+  background: #fff;
+  border-radius: 20px;
+  padding: 24px;
+  max-width: 800px;
+  width: 100%;
+  position: relative;
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+  animation: slideUp 0.4s ease;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(40px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+/* Header */
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.header-icon {
+  width: 50px;
+  height: 50px;
+  background: linear-gradient(135deg, #007bff, #00d4ff);
+  color: white;
+  border-radius: 12px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+}
+
+.sparkle-icon {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  color: gold;
+}
+
+.modal-title {
+  font-size: 1.6rem;
+  margin: 0;
+  font-weight: bold;
+}
+
+.modal-subtitle {
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.close-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #444;
+  transition: transform 0.2s;
+}
+
+.close-btn:hover {
+  transform: rotate(90deg);
+}
+
+/* Intro */
+.modal-intro {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.intro-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #f0f8ff;
+  color: #007bff;
+  padding: 6px 12px;
+  border-radius: 50px;
+  font-size: 0.85rem;
+  font-weight: bold;
+}
+
+.intro-text {
+  margin-top: 10px;
+  font-size: 1rem;
+  color: #444;
+}
+
+.highlight {
+  color: #007bff;
+  font-weight: bold;
+}
+
+/* Steps */
+.steps-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.step-item {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  transition: transform 0.3s, background 0.3s;
+}
+
+.step-item.active {
+  transform: translateX(6px);
+}
+
+/* Step visuals */
+.step-visual {
+  display: flex;
+  align-items: center;
+}
+
+.step-number {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  font-size: 0.9rem;
+  font-weight: bold;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Step colors */
+.step-number.blue,
+.step-icon.blue { background: linear-gradient(135deg, #007bff, #00d4ff); }
+
+.step-number.purple,
+.step-icon.purple { background: linear-gradient(135deg, #8e2de2, #ff6fd8); }
+
+.step-number.green,
+.step-icon.green { background: linear-gradient(135deg, #28a745, #20c997); }
+
+.step-number.orange,
+.step-icon.orange { background: linear-gradient(135deg, #ff7b00, #ff3c00); }
+
+/* Step content */
+.step-content {
+  flex: 1;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: #f9f9f9;
+}
+
+.step-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.step-title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.step-description {
+  font-size: 0.95rem;
+  color: #555;
+  margin-top: 6px;
+}
+
+/* Tags */
+.step-tags {
+  margin-top: 10px;
+}
+
+.tag {
+  display: inline-block;
+  background: #007bff10;
+  color: #007bff;
+  font-size: 0.8rem;
+  padding: 4px 10px;
+  border-radius: 20px;
+  margin-right: 6px;
+}
+
+/* QR */
+.qr-code-placeholder {
+  width: 120px;
+  height: 120px;
+  border: 2px dashed #ccc;
+  border-radius: 12px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 12px;
+  position: relative;
+}
+
+/* Help section */
+.help-section {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+  padding: 16px;
+  background: #f5f9ff;
+  border-radius: 12px;
+  align-items: center;
+}
+
+.help-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: bold;
+}
+
+.help-description {
+  font-size: 0.9rem;
+  color: #555;
+}
+
+/* Footer */
+.modal-footer {
+  margin-top: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-close-btn {
+  background: linear-gradient(135deg, #007bff, #00d4ff);
+  color: white;
+  border: none;
+  border-radius: 50px;
+  padding: 10px 18px;
+  font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.modal-close-btn:hover {
+  background: linear-gradient(135deg, #0056b3, #0088cc);
+}

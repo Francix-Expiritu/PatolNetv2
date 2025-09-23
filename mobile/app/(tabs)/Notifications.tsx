@@ -52,6 +52,8 @@ const Notifications: React.FC = () => {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [viewedNotifications, setViewedNotifications] = useState<number[]>([]);
   const [patrolLogs, setPatrolLogs] = useState<LogEntry[]>([]);
+  const [residentLogs, setResidentLogs] = useState<LogEntry[]>([]);
+  const [viewedResidentLogs, setViewedResidentLogs] = useState<number[]>([]);
   const [viewedPatrolLogs, setViewedPatrolLogs] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -90,6 +92,10 @@ const Notifications: React.FC = () => {
   
   // Categorize reported incidents
   const reportedCategorized = categorizeIncidents(reportedIncidents, viewedReportedIncidents);
+
+  // Separate resident logs into new and viewed
+  const newResidentLogs = residentLogs.filter(log => !viewedResidentLogs.includes(log.ID));
+  const viewedResidentLogsList = residentLogs.filter(log => viewedResidentLogs.includes(log.ID));
 
   const loadUserRole = async () => {
   try {
@@ -150,6 +156,30 @@ const Notifications: React.FC = () => {
     }
   };
 
+  // Load viewed resident logs from AsyncStorage
+  const loadViewedResidentLogs = async () => {
+    try {
+      const viewed = await AsyncStorage.getItem(`viewed_resident_logs_${username}`);
+      if (viewed) {
+        setViewedResidentLogs(JSON.parse(viewed));
+      }
+    } catch (error) {
+      console.error("Error loading viewed resident logs:", error);
+    }
+  };
+
+  // Save viewed resident logs to AsyncStorage
+  const saveViewedResidentLogs = async (viewedIds: number[]) => {
+    try {
+      await AsyncStorage.setItem(
+        `viewed_resident_logs_${username}`,
+        JSON.stringify(viewedIds)
+      );
+    } catch (error) {
+      console.error("Error saving viewed resident logs:", error);
+    }
+  };
+
   // Fetch user logs from API
   const fetchLogs = async () => {
     try {
@@ -165,14 +195,24 @@ const Notifications: React.FC = () => {
   // Fetch patrol logs from API
   const fetchPatrolLogs = async () => {
     try {
-      const response = await axios.get(`${BASE_URL}/api/logs_patrol`);
-      const allPatrolLogs: LogEntry[] = response.data || [];
-      // Filter logs relevant to the current user (Tanod)
-      const userPatrolLogs = allPatrolLogs.filter(log => log.USER === username);
+      const response = await axios.get(`${BASE_URL}/api/logs_patrol/${username}`);
+      const userPatrolLogs: LogEntry[] = response.data || [];
       setPatrolLogs(userPatrolLogs);
       console.log(`Fetched ${userPatrolLogs.length} patrol logs for ${username}`);
     } catch (error) {
       console.error("Error fetching patrol logs:", error);
+    }
+  };
+
+  // Fetch resident logs from API
+  const fetchResidentLogs = async () => {
+    try {
+      const response = await axios.get(`${BASE_URL}/api/logs_resident/${username}`);
+      const allResidentLogs: LogEntry[] = response.data || [];
+      setResidentLogs(allResidentLogs);
+      console.log(`Fetched ${allResidentLogs.length} resident logs for ${username}`);
+    } catch (error) {
+      console.error("Error fetching resident logs:", error);
     }
   };
 
@@ -269,12 +309,14 @@ const Notifications: React.FC = () => {
     const loadData = async () => {
       setLoading(true);
       await loadViewedNotifications();
-      await loadViewedPatrolLogs(); // Load viewed patrol logs
+      await loadViewedPatrolLogs();
+      await loadViewedResidentLogs();
       await loadViewedAssignedIncidents();
       await loadViewedReportedIncidents();
       await loadUserRole();
       await fetchLogs();
-      await fetchPatrolLogs(); // Fetch patrol logs
+      await fetchPatrolLogs();
+      await fetchResidentLogs();
       await fetchAssignedIncidents();
       await fetchReportedIncidents();
       
@@ -306,6 +348,15 @@ const Notifications: React.FC = () => {
     }
   };
 
+  // Mark resident log as viewed
+  const markResidentLogAsViewed = async (logId: number) => {
+    if (!viewedResidentLogs.includes(logId)) {
+      const newViewedIds = [...viewedResidentLogs, logId];
+      setViewedResidentLogs(newViewedIds);
+      await saveViewedResidentLogs(newViewedIds);
+    }
+  };
+
   // Mark patrol log as viewed
   const markPatrolLogAsViewed = async (logId: number) => {
     if (!viewedPatrolLogs.includes(logId)) {
@@ -319,7 +370,8 @@ const Notifications: React.FC = () => {
   const onRefresh = async () => {
     setRefreshing(true);
     await fetchLogs();
-    await fetchPatrolLogs(); // Fetch patrol logs on refresh
+    await fetchPatrolLogs();
+    await fetchResidentLogs();
     await fetchAssignedIncidents();
     await fetchReportedIncidents();
     setRefreshing(false);
@@ -340,16 +392,39 @@ const Notifications: React.FC = () => {
     const allAssignedIds = assignedIncidents.map(incident => incident.id);
     const allReportedIds = reportedIncidents.map(incident => incident.id);
     const allPatrolLogIds = patrolLogs.map(log => log.ID); // Get all patrol log IDs
+    const allResidentLogIds = residentLogs.map(log => log.ID);
     
     setViewedNotifications(allLogIds);
     setViewedAssignedIncidents(allAssignedIds);
     setViewedReportedIncidents(allReportedIds);
-    setViewedPatrolLogs(allPatrolLogIds); // Mark all patrol logs as viewed
+    setViewedPatrolLogs(allPatrolLogIds);
+    setViewedResidentLogs(allResidentLogIds);
     
     await saveViewedNotifications(allLogIds);
     await saveViewedAssignedIncidents(allAssignedIds);
     await saveViewedReportedIncidents(allReportedIds);
-    await saveViewedPatrolLogs(allPatrolLogIds); // Save viewed patrol logs
+    await saveViewedPatrolLogs(allPatrolLogIds);
+    await saveViewedResidentLogs(allResidentLogIds);
+
+    // Also update the 'last seen' IDs in AsyncStorage so the NavBar badge resets
+    try {
+      const latestLogId = logs.length > 0 ? Math.max(...logs.map(log => log.ID)) : null;
+      const latestIncidentId = assignedIncidents.length > 0 ? Math.max(...assignedIncidents.map(incident => incident.id)) : null;
+      const latestPatrolLogId = patrolLogs.length > 0 ? Math.max(...patrolLogs.map(log => log.ID)) : null;
+      const latestResidentLogId = residentLogs.length > 0 ? Math.max(...residentLogs.map(log => log.ID)) : null;
+
+      if (latestLogId) await AsyncStorage.setItem(`lastLogId_${username}`, latestLogId.toString());
+      if (latestIncidentId) await AsyncStorage.setItem(`lastIncidentId_${username}`, latestIncidentId.toString());
+      if (latestPatrolLogId) await AsyncStorage.setItem(`lastPatrolLogId_${username}`, latestPatrolLogId.toString());
+      if (latestResidentLogId) await AsyncStorage.setItem(`lastResidentLogId_${username}`, latestResidentLogId.toString());
+      
+      // Clear the unread incident IDs set used by the NavBar
+      await AsyncStorage.setItem(`unreadIncidentIds_${username}`, JSON.stringify([]));
+
+      console.log('Synced "mark all as viewed" with NavBar state.');
+    } catch (error) {
+      console.error("Error syncing with NavBar state from Notifications:", error);
+    }
   };
 
   // Clear all viewed
@@ -363,11 +438,13 @@ const Notifications: React.FC = () => {
           text: "Clear",
           onPress: async () => {
             setViewedNotifications([]);
-            setViewedPatrolLogs([]); // Clear viewed patrol logs
+            setViewedPatrolLogs([]);
+            setViewedResidentLogs([]);
             setViewedAssignedIncidents([]);
             setViewedReportedIncidents([]);
             await saveViewedNotifications([]);
-            await saveViewedPatrolLogs([]); // Save cleared patrol logs
+            await saveViewedPatrolLogs([]);
+            await saveViewedResidentLogs([]);
             await saveViewedAssignedIncidents([]);
             await saveViewedReportedIncidents([]);
           },
@@ -700,6 +777,44 @@ Resolved By: ${incident.resolved_by}` : ''}`;
     );
   };
 
+  // Render resident log item
+  const renderResidentLogItem = (log: LogEntry, isNew: boolean) => {
+    const logDisplay = getResidentLogDisplayText(log);
+
+    return (
+      <TouchableOpacity
+        key={`resident_${log.ID}`}
+        style={[
+          styles.notificationItem,
+          isNew ? styles.newCommunityAlertNotification : styles.viewedNotification
+        ]}
+        onPress={() => markResidentLogAsViewed(log.ID)}
+      >
+        <View style={styles.notificationHeader}>
+          <View style={styles.notificationIcon}>
+            <Ionicons
+              name={isNew ? "warning" : "warning-outline"}
+              size={20}
+              color={isNew ? "#FFC107" : "#666"}
+            />
+          </View>
+          <View style={styles.notificationContent}>
+            <Text style={[styles.notificationTitle, isNew && styles.newCommunityAlertTitle]}>
+              📢 Community Alert
+            </Text>
+            <Text style={styles.notificationDate}>
+              {logDisplay.date} at {logDisplay.time}
+            </Text>
+            <Text style={styles.notificationLocation}>
+              {logDisplay.action}
+            </Text>
+          </View>
+          {isNew && <View style={styles.newCommunityAlertBadge} />}
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
   // Helper function to format log display text
   const getLogDisplayText = (log: LogEntry) => {
     const date = new Date(log.TIME).toLocaleDateString();
@@ -730,6 +845,20 @@ Resolved By: ${incident.resolved_by}` : ''}`;
   // Separate logs into new and viewed
   const newNotifications = logs.filter(log => !viewedNotifications.includes(log.ID));
   const viewedNotificationsList = logs.filter(log => viewedNotifications.includes(log.ID));
+
+  // Helper function to format resident log display text
+  const getResidentLogDisplayText = (log: LogEntry) => {
+    const date = new Date(log.TIME).toLocaleDateString();
+    const time = new Date(log.TIME).toLocaleTimeString();
+    const action = log.ACTION || 'Community Alert';
+
+    return {
+      date,
+      time,
+      action,
+      location: log.LOCATION || null
+    };
+  };
 
   // Helper function to format patrol log display text
   const getPatrolLogDisplayText = (log: LogEntry) => {
@@ -851,14 +980,16 @@ Resolved By: ${incident.resolved_by}` : ''}`;
   const totalNewNotifications = newNotifications.length +
     assignedCategorized.newIncidents.length +
     reportedCategorized.newIncidents.length +
-    newPatrolLogs.length; // Include new patrol logs
+    newPatrolLogs.length +
+    newResidentLogs.length;
   
   const totalViewedNotifications = viewedNotificationsList.length +
     assignedCategorized.viewedUnresolved.length +
     assignedCategorized.resolved.length +
     reportedCategorized.viewedUnresolved.length +
     reportedCategorized.resolved.length +
-    viewedPatrolLogsList.length; // Include viewed patrol logs
+    viewedPatrolLogsList.length +
+    viewedResidentLogsList.length;
 
   return (
     <View style={styles.container}>
@@ -897,7 +1028,7 @@ Resolved By: ${incident.resolved_by}` : ''}`;
           </Text>
         </View>
 
-        {logs.length === 0 && assignedIncidents.length === 0 && reportedIncidents.length === 0 && patrolLogs.length === 0 ? (
+        {logs.length === 0 && assignedIncidents.length === 0 && reportedIncidents.length === 0 && patrolLogs.length === 0 && residentLogs.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Ionicons name="notifications-off-outline" size={64} color="#ccc" />
             <Text style={styles.emptyText}>No notifications yet</Text>
@@ -907,6 +1038,16 @@ Resolved By: ${incident.resolved_by}` : ''}`;
           </View>
         ) : (
           <>
+            {/* New Community Alerts for Residents */}
+            {newResidentLogs.length > 0 && userRole === 'Resident' && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>
+                  📢 Community Alerts ({newResidentLogs.length})
+                </Text>
+                {newResidentLogs.map(log => renderResidentLogItem(log, true))}
+              </View>
+            )}
+
             {/* New Incident Reports for Tanods */}
             {newPatrolLogs.length > 0 && (
               <View style={styles.section}>
@@ -953,6 +1094,9 @@ Resolved By: ${incident.resolved_by}` : ''}`;
                 <Text style={styles.sectionTitle}>
                   Earlier ({totalViewedNotifications})
                 </Text>
+                {/* Viewed community alerts */}
+                {viewedResidentLogsList.map(log => renderResidentLogItem(log, false))}
+
                 {/* Viewed patrol logs */}
                 {viewedPatrolLogsList.map(log => renderPatrolLogItem(log, false))}
 
@@ -1208,6 +1352,23 @@ newIncidentReportBadge: {
   height: 8,
   borderRadius: 4,
   backgroundColor: "#D32F2F", // Red badge
+  marginTop: 5,
+},
+// New styles for community alert notifications
+newCommunityAlertNotification: {
+  backgroundColor: "#fffbe6", // Light yellow
+  borderLeftWidth: 4,
+  borderLeftColor: "#FFC107", // Amber
+},
+newCommunityAlertTitle: {
+  fontWeight: "bold",
+  color: "#FFA000", // Darker Amber
+},
+newCommunityAlertBadge: {
+  width: 8,
+  height: 8,
+  borderRadius: 4,
+  backgroundColor: "#FFC107", // Amber
   marginTop: 5,
 },
 });

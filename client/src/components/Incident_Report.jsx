@@ -1,6 +1,5 @@
 // IncidentReport.jsx
 import React, { useState, useEffect } from "react";
-import MainSidebarWrapper from "./MainSidebarWrapper";
 import ViewIncidentModal from "./Modals/ViewIncidentModal";
 import AssignTanodModal from "./Modals/Tanodmodal";
 import ConfirmationModal from "./Modals/ConfirmationModal";
@@ -212,9 +211,8 @@ function IncidentReport() {
 
   return (
     <div className="dashboard">
-      <MainSidebarWrapper />
-      <div style={{ width: '100%' }}>
-        <div style={{ backgroundColor: '#ffffff', padding: '1.5rem 2rem', borderBottom: '1px solid #e5e7eb' }}>
+      <div style={{ width: '100%', margin: '0 auto' }}>
+        <div style={{ backgroundColor: '#ffffff', padding: '1.5rem 2rem', borderBottom: '1px solid #e5e7eb', position: 'sticky', top: 0, zIndex: 10 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', maxWidth: '1200px', margin: '0 auto' }}>
             <div>
               <h1 style={{ fontSize: '1.75rem', fontWeight: '700', color: '#1f2937', margin: 0, display: 'flex', alignItems: 'center' }}>
