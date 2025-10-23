@@ -1501,11 +1501,7 @@
   :root {
     --text-primary: #f7fafc;
     --text-secondary: #e2e8f0;
-    --text-light: #a0aec0;
-    --bg-primary: #1a202c;
-    --bg-secondary: #2d3748;
-    --bg-dark: #f7fafc;
-    --border-color: #4a5568;
+
   }
   
   .announcement-page {

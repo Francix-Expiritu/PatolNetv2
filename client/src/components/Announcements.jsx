@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import GISMapping from "./GISmapping";
-import "./Announcements.css";
-import "./CommunityHub.css";
 import CommunityHub from './CommunityHub';
 import { BASE_URL } from '../config';
 
@@ -60,177 +58,402 @@ export default function AnnouncementPage() {
   const riskLevel = getRiskLevel();
 
   return (
-    <div className="announcement-page">
-      {/* Hero Section with Map Dashboard */}
-      <section className="hero-dashboard">
-        <div className="hero-background">
-          <div className="animated-grid"></div>
-          <div className="floating-particles">
-            {[...Array(15)].map((_, i) => (
-              <div key={i} className={`particle particle-${i % 3}`} />
-            ))}
-          </div>
+    <div style={styles.page}>
+      {/* Header */}
+      <div style={styles.header}>
+        <div style={styles.container}>
+          <h1 style={styles.title}>Community Safety Dashboard</h1>
+          <p style={styles.subtitle}>Real-time incident monitoring and community updates</p>
         </div>
+      </div>
 
-        <div className="hero-content">
-          <div className="hero-header">
-            <h1 className="hero-title">
-              <span className="title-main">Community Safety</span>
-              <span className="title-sub">Dashboard</span>
-            </h1>
-            <p className="hero-description">
-              Real-time monitoring and community engagement platform
-            </p>
-          </div>
-
-          <div className="dashboard-grid">
-            {/* Enhanced Map Section */}
-            <div className="map-section">
-              <div className="map-card">
-                <div className="map-header">
-                  <div className="map-title">
-                    <h3>Live Incident Map</h3>
-                    <div className="live-indicator">
-                      <div className="pulse-dot"></div>
-                      <span>Live Updates</span>
-                    </div>
+      {/* Main Content */}
+      <div style={styles.mainContent}>
+        <div style={styles.container}>
+          <div style={styles.mainGrid}>
+            {/* Map Section */}
+            <div style={styles.mapSection}>
+              <div style={styles.card}>
+                <div style={styles.cardHeader}>
+                  <h2 style={styles.cardTitle}>Live Incident Map</h2>
+                  <div style={styles.liveIndicator}>
+                    <div style={styles.liveDot}></div>
+                    <span style={styles.liveText}>Live</span>
                   </div>
                 </div>
-                <div className="map-container">
+                <div style={styles.mapContainer}>
                   <GISMapping showOnlyMap={true} />
-                  <div className="map-overlay">
-                    <div className="quick-stats">
-                      <div className="stat-bubble">
-                        <span className="stat-number">{incidents.length}</span>
-                        <span className="stat-label">Total</span>
-                      </div>
-                      <div className="stat-bubble active">
-                        <span className="stat-number">{incidents.filter(i => i.status === 'active').length}</span>
-                        <span className="stat-label">Active</span>
-                      </div>
-                    </div>
+                </div>
+                <div style={styles.mapStats}>
+                  <div style={styles.statItem}>
+                    <span style={styles.statNumber}>{incidents.length}</span>
+                    <span style={styles.statLabel}>Total Incidents</span>
+                  </div>
+                  <div style={styles.statDivider}></div>
+                  <div style={styles.statItem}>
+                    <span style={styles.statNumber}>{incidents.filter(i => i.status === 'active').length}</span>
+                    <span style={styles.statLabel}>Active</span>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Enhanced Info Panel */}
-            <div className="info-section">
-              <div className="info-cards">
-                {/* Risk Level Card */}
-                <div className="info-card risk-card">
-                  <div className="card-header">
-                    <div className="card-icon">🛡️</div>
-                    <div className="card-title">Current Risk Level</div>
+            {/* Info Section */}
+            <div style={styles.infoSection}>
+              {/* Risk Level */}
+              <div style={styles.card}>
+                <div style={styles.cardHeader}>
+                  <h3 style={styles.cardTitle}>Risk Level</h3>
+                </div>
+                <div style={styles.riskContent}>
+                  <div style={{...styles.riskBadge, backgroundColor: riskLevel.color}}>
+                    {riskLevel.level}
                   </div>
-                  <div className="risk-display">
-                    <div 
-                      className="risk-level"
-                      style={{ backgroundColor: riskLevel.color }}
-                    >
-                      {riskLevel.level}
+                  <p style={styles.riskDetail}>
+                    {incidents.filter(i => i.status === 'active').length} active incidents
+                  </p>
+                </div>
+              </div>
+
+              {/* Latest Incident */}
+              {recentIncident && (
+                <div style={styles.card}>
+                  <div style={styles.cardHeader}>
+                    <h3 style={styles.cardTitle}>Latest Incident</h3>
+                  </div>
+                  <div style={styles.incidentContent}>
+                    <div style={styles.incidentHeader}>
+                      <span style={styles.incidentType}>{recentIncident.incident_type}</span>
+                      <span style={{...styles.statusBadge, ...styles[recentIncident.status]}}>
+                        {recentIncident.status}
+                      </span>
                     </div>
-                    <div className="risk-details">
-                      <span>{incidents.filter(i => i.status === 'active').length} active incidents</span>
-                      <span>Last update: {new Date().toLocaleTimeString()}</span>
-                    </div>
+                    <p style={styles.incidentTime}>{formatDate(recentIncident.datetime)}</p>
+                    <p style={styles.incidentDescription}>{recentIncident.description}</p>
+                    <p style={styles.responseTime}>Response time: {recentIncident.responsetime}</p>
                   </div>
                 </div>
+              )}
 
-                {/* Latest Incident Card */}
-                {recentIncident && (
-                  <div className="info-card incident-card">
-                    <div className="card-header">
-                      <div className="card-icon">🚨</div>
-                      <div className="card-title">Latest Incident</div>
-                    </div>
-                    <div className="incident-info">
-                      <div className="incident-type-badge">
-                        {recentIncident.incident_type || 'General'}
-                      </div>
-                      <div className="incident-time">
-                        {formatDate(recentIncident.datetime)}
-                      </div>
-                      <p className="incident-description">
-                        {recentIncident.description}
-                      </p>
-                      <div className="incident-status">
-                        <span className={`status-badge ${recentIncident.status}`}>
-                          {recentIncident.status}
-                        </span>
-                        <span className="response-time" >
-                          Response: {recentIncident.responsetime}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Incident Statistics */}
-                <div className="info-card stats-card">
-                  <div className="card-header">
-                    <div className="card-icon">📊</div>
-                    <div className="card-title">Incident Distribution</div>
-                  </div>
-                  <div className="incident-chart">
-                    {Object.entries(getIncidentsByType()).map(([type, count]) => (
-                      <div key={type} className="chart-item">
-                        <div className="chart-label">
-                          <span className="type-name">{type}</span>
-                          <span className="type-count">{count}</span>
-                        </div>
-                        <div className="chart-bar">
-                          <div 
-                            className="chart-fill" 
-                            style={{
-                              width: `${(count / incidents.length) * 100}%`,
-                              animationDelay: `${Object.keys(getIncidentsByType()).indexOf(type) * 0.1}s`
-                            }}
-                          ></div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+              {/* Statistics */}
+              <div style={styles.card}>
+                <div style={styles.cardHeader}>
+                  <h3 style={styles.cardTitle}>Incident Types</h3>
                 </div>
+                <div style={styles.statsContent}>
+                  {Object.entries(getIncidentsByType()).map(([type, count]) => (
+                    <div key={type} style={styles.statRow}>
+                      <span style={styles.statType}>{type}</span>
+                      <span style={styles.statCount}>{count}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
 
-                {/* Emergency Contacts */}
-                <div className="info-card contacts-card">
-                  <div className="card-header">
-                    <div className="card-icon">📞</div>
-                    <div className="card-title">Emergency Contacts</div>
+              {/* Emergency Contacts */}
+              <div style={styles.card}>
+                <div style={styles.cardHeader}>
+                  <h3 style={styles.cardTitle}>Emergency Contacts</h3>
+                </div>
+                <div style={styles.contactsContent}>
+                  <div style={styles.contactItem}>
+                    <div>
+                      <div style={styles.contactName}>Emergency Services</div>
+                      <div style={styles.contactNumber}>911</div>
+                    </div>
+                    <button style={styles.callButton}>Call</button>
                   </div>
-                  <div className="contact-list">
-                    <div className="contact-item emergency">
-                      <div className="contact-info">
-                        <span className="contact-name">Emergency Services</span>
-                        <span className="contact-number">911</span>
-                      </div>
-                      <button className="call-btn">📞</button>
+                  <div style={styles.contactItem}>
+                    <div>
+                      <div style={styles.contactName}>Local Emergency</div>
+                      <div style={styles.contactNumber}>(02) 8888-0911</div>
                     </div>
-                    <div className="contact-item">
-                      <div className="contact-info">
-                        <span className="contact-name">Local Emergency</span>
-                        <span className="contact-number">(02) 8888-0911</span>
-                      </div>
-                      <button className="call-btn">📞</button>
+                    <button style={styles.callButton}>Call</button>
+                  </div>
+                  <div style={styles.contactItem}>
+                    <div>
+                      <div style={styles.contactName}>Disaster Response</div>
+                      <div style={styles.contactNumber}>(02) 911-1406</div>
                     </div>
-                    <div className="contact-item">
-                      <div className="contact-info">
-                        <span className="contact-name">Disaster Response</span>
-                        <span className="contact-number">(02) 911-1406</span>
-                      </div>
-                      <button className="call-btn">📞</button>
-                    </div>
+                    <button style={styles.callButton}>Call</button>
                   </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </section>
+      </div>
 
-      {/* Enhanced Community Hub */}
-      <CommunityHub formatDate={formatDate} />
+      {/* Community Hub */}
+      <div style={styles.communityWrapper}>
+        <div style={styles.communityContainer}>
+          <CommunityHub formatDate={formatDate} />
+        </div>
+      </div>
     </div>
   );
 }
+
+const styles = {
+  page: {
+    minHeight: '100vh',
+    backgroundColor: '#f9fafb',
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  header: {
+    backgroundColor: 'white',
+    borderBottom: '1px solid #e5e7eb',
+    padding: '40px 0',
+  },
+  container: {
+    maxWidth: '1200px',
+    margin: '0 auto',
+    padding: '0 20px',
+  },
+  mainContent: {
+    flex: '1',
+  },
+  title: {
+    fontSize: '32px',
+    fontWeight: '700',
+    color: '#111827',
+    margin: '0 0 8px 0',
+  },
+  subtitle: {
+    fontSize: '16px',
+    color: '#6b7280',
+    margin: 0,
+  },
+  mainGrid: {
+    display: 'grid',
+    gridTemplateColumns: '2fr 1fr',
+    gap: '24px',
+    padding: '40px 0',
+  },
+  mapSection: {
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  infoSection: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '20px',
+  },
+  card: {
+    backgroundColor: 'white',
+    borderRadius: '12px',
+    padding: '24px',
+    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+  },
+  cardHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '20px',
+  },
+  cardTitle: {
+    fontSize: '18px',
+    fontWeight: '600',
+    color: '#111827',
+    margin: 0,
+  },
+  liveIndicator: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+  },
+  liveDot: {
+    width: '8px',
+    height: '8px',
+    backgroundColor: '#ef4444',
+    borderRadius: '50%',
+    animation: 'pulse 2s infinite',
+  },
+  liveText: {
+    fontSize: '14px',
+    color: '#6b7280',
+    fontWeight: '500',
+  },
+  mapContainer: {
+    height: '400px',
+    marginBottom: '16px',
+  },
+  mapStats: {
+    display: 'flex',
+    justifyContent: 'space-around',
+    padding: '16px',
+    backgroundColor: '#f9fafb',
+    borderRadius: '8px',
+  },
+  statItem: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '4px',
+  },
+  statNumber: {
+    fontSize: '28px',
+    fontWeight: '700',
+    color: '#111827',
+  },
+  statLabel: {
+    fontSize: '14px',
+    color: '#6b7280',
+  },
+  statDivider: {
+    width: '1px',
+    backgroundColor: '#e5e7eb',
+  },
+  riskContent: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: '12px',
+    padding: '20px 0',
+  },
+  riskBadge: {
+    padding: '12px 32px',
+    borderRadius: '8px',
+    color: 'white',
+    fontSize: '20px',
+    fontWeight: '700',
+  },
+  riskDetail: {
+    fontSize: '14px',
+    color: '#6b7280',
+    margin: 0,
+  },
+  incidentContent: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '12px',
+  },
+  incidentHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  incidentType: {
+    fontSize: '16px',
+    fontWeight: '600',
+    color: '#111827',
+  },
+  statusBadge: {
+    padding: '4px 12px',
+    borderRadius: '12px',
+    fontSize: '12px',
+    fontWeight: '600',
+    textTransform: 'capitalize',
+  },
+  active: {
+    backgroundColor: '#fef3c7',
+    color: '#92400e',
+  },
+  resolved: {
+    backgroundColor: '#d1fae5',
+    color: '#065f46',
+  },
+  incidentTime: {
+    fontSize: '13px',
+    color: '#6b7280',
+    margin: 0,
+  },
+  incidentDescription: {
+    fontSize: '14px',
+    color: '#374151',
+    margin: 0,
+    lineHeight: '1.5',
+  },
+  responseTime: {
+    fontSize: '13px',
+    color: '#6b7280',
+    margin: 0,
+  },
+  statsContent: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '12px',
+  },
+  statRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '8px 0',
+    borderBottom: '1px solid #f3f4f6',
+  },
+  statType: {
+    fontSize: '14px',
+    color: '#374151',
+  },
+  statCount: {
+    fontSize: '16px',
+    fontWeight: '600',
+    color: '#111827',
+  },
+  contactsContent: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '12px',
+  },
+  contactItem: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '12px',
+    backgroundColor: '#f9fafb',
+    borderRadius: '8px',
+  },
+  contactName: {
+    fontSize: '14px',
+    fontWeight: '500',
+    color: '#374151',
+    marginBottom: '4px',
+  },
+  contactNumber: {
+    fontSize: '16px',
+    fontWeight: '600',
+    color: '#111827',
+  },
+  callButton: {
+    padding: '8px 16px',
+    backgroundColor: '#2563eb',
+    color: 'white',
+    border: 'none',
+    borderRadius: '6px',
+    fontSize: '14px',
+    fontWeight: '500',
+    cursor: 'pointer',
+  },
+  communityWrapper: {
+    width: '100%',
+    backgroundColor: '#ffffff',
+    borderTop: '1px solid #e5e7eb',
+    marginTop: '60px',
+    paddingTop: '60px',
+    paddingBottom: '60px',
+  },
+  communityContainer: {
+    maxWidth: '1200px',
+    margin: '0 auto',
+    padding: '0 20px',
+    position: 'relative',
+    zIndex: 1,
+  },
+};
+
+// Add keyframes for pulse animation in a style tag
+const styleSheet = document.createElement("style");
+styleSheet.textContent = `
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+  
+  @media (max-width: 768px) {
+    div[style*="gridTemplateColumns: 2fr 1fr"] {
+      grid-template-columns: 1fr !important;
+    }
+  }
+`;
+document.head.appendChild(styleSheet);

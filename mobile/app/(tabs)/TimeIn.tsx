@@ -321,7 +321,7 @@ const TanodAttendance: React.FC = () => {
             </View>
           </View>
           
-          {userStatus?.schedule.scheduledTime && (
+          {userStatus?.schedule?.scheduledTime && (
             <View style={styles.scheduleInfo}>
               <Ionicons name="calendar-outline" size={16} color="#666" />
               <Text style={styles.scheduleText}>
@@ -332,7 +332,7 @@ const TanodAttendance: React.FC = () => {
         </Animated.View>
 
         {/* Today's Records */}
-        {(userStatus?.logs.timeIn || userStatus?.logs.timeOut) && (
+        {(userStatus?.logs?.timeIn || userStatus?.logs?.timeOut) && (
           <View style={styles.recordsCard}>
             <Text style={styles.recordsTitle}>Today's Records</Text>
             

@@ -155,7 +155,7 @@ function GISMapping({ showOnlyMap }) {
   const styles = {
     container: {
       minHeight: '100vh',
-      background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
+      
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
     },
     header: {
@@ -266,12 +266,12 @@ function GISMapping({ showOnlyMap }) {
     },
     searchInput: {
       width: '100%',
-      padding: '12px 16px',
-      border: '1px solid rgba(226, 232, 240, 0.8)',
-      borderRadius: '12px',
+      padding: '0.75rem 1rem',
+      border: '1px solid #d1d5db',
+      borderRadius: '8px',
       fontSize: '0.875rem',
-      background: 'rgba(255, 255, 255, 0.8)',
-      backdropFilter: 'blur(10px)',
+      backgroundColor: '#ffffff',
+      boxShadow: 'none',
       transition: 'all 0.2s ease',
       marginBottom: '1rem'
     },
@@ -492,8 +492,14 @@ function GISMapping({ showOnlyMap }) {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 style={styles.searchInput}
-                onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
-                onBlur={(e) => e.target.style.borderColor = 'rgba(226, 232, 240, 0.8)'}
+                onFocus={(e) => {
+                    e.target.style.borderColor = '#3b82f6';
+                    e.target.style.boxShadow = '0 0 0 2px rgba(59, 130, 246, 0.2)';
+                }}
+                onBlur={(e) => {
+                    e.target.style.borderColor = '#d1d5db';
+                    e.target.style.boxShadow = 'none';
+                }}
               />
               
               {incidentTypes.map(type => (
