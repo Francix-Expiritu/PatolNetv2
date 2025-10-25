@@ -775,9 +775,9 @@ app.put("/api/incidents/:id/resolve", (req, res) => {
   const { resolved_by } = req.body; // Optional: track who resolved it
   
   if (!incidentId) {
-    return res.status(400).json({ 
-      success: false, 
-      message: "Incident ID is required" 
+    return res.status(400).json({
+      success: false,
+      message: "Incident ID is required"
     });
   }
   
@@ -788,16 +788,16 @@ app.put("/api/incidents/:id/resolve", (req, res) => {
   db.query(sql, [resolvedAt, resolved_by || null, incidentId], (err, result) => {
     if (err) {
       console.error("❌ SQL update error:", err);
-      return res.status(500).json({ 
-        success: false, 
-        message: "Database error" 
+      return res.status(500).json({
+        success: false,
+        message: "Database error"
       });
     }
     
     if (result.affectedRows === 0) {
-      return res.status(404).json({ 
-        success: false, 
-        message: "Incident not found" 
+      return res.status(404).json({
+        success: false,
+        message: "Incident not found"
       });
     }
     
@@ -814,8 +814,8 @@ app.put("/api/incidents/:id/resolve", (req, res) => {
         if (!err && incidentResults.length > 0) {
           const incident = incidentResults[0];
           db.query(logSql, [
-            resolved_by, 
-            getGMT8Time(), 
+            resolved_by,
+            getGMT8Time(),
             `Resolved Incident: ${incident.incident_type}`,
             incident.location
           ], (logErr) => {
@@ -827,8 +827,8 @@ app.put("/api/incidents/:id/resolve", (req, res) => {
       });
     }
     
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       message: "Incident marked as resolved successfully",
       incident_id: incidentId,
       status: 'Resolved',
@@ -838,6 +838,65 @@ app.put("/api/incidents/:id/resolve", (req, res) => {
   });
 });
 
+// API endpoint to assign a tanod to an incident
+app.put("/api/incidents/:id/assign", (req, res) => {
+  const incidentId = req.params.id;
+  const { tanod_id } = req.body;
+
+  if (!incidentId || !tanod_id) {
+    return res.status(400).json({ success: false, message: "Incident ID and Tanod ID are required" });
+  }
+  const sql = `UPDATE incident_report SET status = 'In Progress', assigned = ? WHERE id = ?`;
+
+  db.query(sql, [tanod_id, incidentId], (err, result) => {
+    if (err) {
+      console.error("❌ SQL update error:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Database error"
+      });
+    }
+    
+    if (result.affectedRows === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Incident not found"
+      });
+    }
+    
+    // Log the assignment action
+    const logSql = `
+      INSERT INTO logs_patrol (USER, TIME, ACTION, LOCATION)
+      VALUES (?, ?, ?, ?)
+    `;
+    
+    // Get incident details for logging
+    const getIncidentSql = "SELECT incident_type, location FROM incident_report WHERE id = ?";
+    db.query(getIncidentSql, [incidentId], (err, incidentResults) => {
+      if (!err && incidentResults.length > 0) {
+        const incident = incidentResults[0];
+        db.query(logSql, [
+          tanod_id,
+          getGMT8Time(),
+          `Assigned to Incident: ${incident.incident_type}`,
+          incident.location
+        ], (logErr) => {
+          if (logErr) {
+            console.error("Error logging incident assignment:", logErr);
+          }
+        });
+      }
+    });
+    
+    res.json({
+      success: true,
+      message: "Tanod assigned successfully and incident is now In Progress.",
+      incident_id: incidentId,
+      status: 'In Progress',
+      assigned_tanod: tanod_id
+    });
+  });
+});
 // API endpoint to get incident details by ID
 app.get("/api/incidents/:id", (req, res) => {
   const incidentId = req.params.id;

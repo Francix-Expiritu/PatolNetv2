@@ -69,6 +69,13 @@ const Notifications: React.FC = () => {
   const [viewedAssignedIncidents, setViewedAssignedIncidents] = useState<number[]>([]);
   const [viewedReportedIncidents, setViewedReportedIncidents] = useState<number[]>([]);
 
+  // State for deleted notifications
+  const [deletedNotifications, setDeletedNotifications] = useState<number[]>([]);
+  const [deletedPatrolLogs, setDeletedPatrolLogs] = useState<number[]>([]);
+  const [deletedResidentLogs, setDeletedResidentLogs] = useState<number[]>([]);
+  const [deletedAssignedIncidents, setDeletedAssignedIncidents] = useState<number[]>([]);
+  const [deletedReportedIncidents, setDeletedReportedIncidents] = useState<number[]>([]);
+
   // Helper function to categorize incidents
   const categorizeIncidents = (incidents: IncidentReport[], viewedIds: number[]) => {
     const unresolved = incidents.filter(incident => incident.status !== 'Resolved');
@@ -94,8 +101,8 @@ const Notifications: React.FC = () => {
   const reportedCategorized = categorizeIncidents(reportedIncidents, viewedReportedIncidents);
 
   // Separate resident logs into new and viewed
-  const newResidentLogs = residentLogs.filter(log => !viewedResidentLogs.includes(log.ID));
-  const viewedResidentLogsList = residentLogs.filter(log => viewedResidentLogs.includes(log.ID));
+  const newResidentLogs = residentLogs.filter(log => !viewedResidentLogs.includes(log.ID) && !deletedResidentLogs.includes(log.ID));
+  const viewedResidentLogsList = residentLogs.filter(log => viewedResidentLogs.includes(log.ID) && !deletedResidentLogs.includes(log.ID));
 
   const loadUserRole = async () => {
   try {
@@ -107,6 +114,72 @@ const Notifications: React.FC = () => {
     console.error("Error loading user role:", error);
   }
 };
+
+  // --- DELETED NOTIFICATIONS ---
+  const loadDeletedState = async () => {
+    try {
+      const [
+        deletedLogs,
+        deletedPatrol,
+        deletedResident,
+        deletedAssigned,
+        deletedReported,
+      ] = await AsyncStorage.multiGet([
+        `deleted_notifications_${username}`,
+        `deleted_patrol_logs_${username}`,
+        `deleted_resident_logs_${username}`,
+        `deleted_assigned_incidents_${username}`,
+        `deleted_reported_incidents_${username}`,
+      ]);
+
+      if (deletedLogs[1]) setDeletedNotifications(JSON.parse(deletedLogs[1]));
+      if (deletedPatrol[1]) setDeletedPatrolLogs(JSON.parse(deletedPatrol[1]));
+      if (deletedResident[1]) setDeletedResidentLogs(JSON.parse(deletedResident[1]));
+      if (deletedAssigned[1]) setDeletedAssignedIncidents(JSON.parse(deletedAssigned[1]));
+      if (deletedReported[1]) setDeletedReportedIncidents(JSON.parse(deletedReported[1]));
+    } catch (error) {
+      console.error("Error loading deleted state:", error);
+    }
+  };
+
+  const deleteNotification = async (id: number, type: 'log' | 'patrol' | 'resident' | 'assigned' | 'reported') => {
+    Alert.alert("Delete Notification", "Are you sure you want to permanently hide this notification?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          switch (type) {
+            case 'log':
+              const newDeleted = [...deletedNotifications, id];
+              setDeletedNotifications(newDeleted);
+              await AsyncStorage.setItem(`deleted_notifications_${username}`, JSON.stringify(newDeleted));
+              break;
+            case 'patrol':
+              const newDeletedPatrol = [...deletedPatrolLogs, id];
+              setDeletedPatrolLogs(newDeletedPatrol);
+              await AsyncStorage.setItem(`deleted_patrol_logs_${username}`, JSON.stringify(newDeletedPatrol));
+              break;
+            case 'resident':
+              const newDeletedResident = [...deletedResidentLogs, id];
+              setDeletedResidentLogs(newDeletedResident);
+              await AsyncStorage.setItem(`deleted_resident_logs_${username}`, JSON.stringify(newDeletedResident));
+              break;
+            case 'assigned':
+              const newDeletedAssigned = [...deletedAssignedIncidents, id];
+              setDeletedAssignedIncidents(newDeletedAssigned);
+              await AsyncStorage.setItem(`deleted_assigned_incidents_${username}`, JSON.stringify(newDeletedAssigned));
+              break;
+            case 'reported':
+              const newDeletedReported = [...deletedReportedIncidents, id];
+              setDeletedReportedIncidents(newDeletedReported);
+              await AsyncStorage.setItem(`deleted_reported_incidents_${username}`, JSON.stringify(newDeletedReported));
+              break;
+          }
+        },
+      },
+    ]);
+  };
 
   // Load viewed notifications from AsyncStorage
   const loadViewedNotifications = async () => {
@@ -315,6 +388,7 @@ const Notifications: React.FC = () => {
       await loadViewedReportedIncidents();
       await loadUserRole();
       await fetchLogs();
+      await loadDeletedState();
       await fetchPatrolLogs();
       await fetchResidentLogs();
       await fetchAssignedIncidents();
@@ -430,8 +504,8 @@ const Notifications: React.FC = () => {
   // Clear all viewed
   const clearAllViewed = async () => {
     Alert.alert(
-      "Clear Viewed",
-      "Are you sure you want to mark all notifications as new?",
+      "Reset Notifications",
+      "Are you sure you want to mark all notifications as new? This will reset your viewed history.",
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -447,6 +521,23 @@ const Notifications: React.FC = () => {
             await saveViewedResidentLogs([]);
             await saveViewedAssignedIncidents([]);
             await saveViewedReportedIncidents([]);
+            setDeletedNotifications([]);
+            setDeletedPatrolLogs([]);
+            setDeletedResidentLogs([]);
+            setDeletedAssignedIncidents([]);
+            setDeletedReportedIncidents([]);
+
+            // Also clear the 'last seen' IDs and unread incident IDs from AsyncStorage
+            await AsyncStorage.removeItem(`lastLogId_${username}`);
+            await AsyncStorage.removeItem(`lastIncidentId_${username}`);
+            await AsyncStorage.removeItem(`lastPatrolLogId_${username}`);
+            await AsyncStorage.removeItem(`lastResidentLogId_${username}`);
+            await AsyncStorage.removeItem(`unreadIncidentIds_${username}`);
+            await AsyncStorage.removeItem(`deleted_notifications_${username}`);
+            await AsyncStorage.removeItem(`deleted_patrol_logs_${username}`);
+            await AsyncStorage.removeItem(`deleted_resident_logs_${username}`);
+            await AsyncStorage.removeItem(`deleted_assigned_incidents_${username}`);
+            await AsyncStorage.removeItem(`deleted_reported_incidents_${username}`);
           },
         },
       ]
@@ -695,6 +786,13 @@ Resolved By: ${incident.resolved_by}` : ''}`;
               </Text>
             )}
           </View>
+          <TouchableOpacity style={styles.deleteButton} onPress={() => deleteNotification(incident.id, 'assigned')}>
+            <Ionicons
+              name="trash-bin-outline"
+              size={20}
+              color="#e74c3c"
+            />
+          </TouchableOpacity>
           {isNew && <View style={styles.newIncidentBadge} />}
           {isUnresolvedButViewed && <View style={styles.unresolvedViewedBadge} />}
         </View>
@@ -770,6 +868,13 @@ Resolved By: ${incident.resolved_by}` : ''}`;
               </Text>
             )}
           </View>
+          <TouchableOpacity style={styles.deleteButton} onPress={() => deleteNotification(incident.id, 'reported')}>
+            <Ionicons
+              name="trash-bin-outline"
+              size={20}
+              color="#e74c3c"
+            />
+          </TouchableOpacity>
           {isNew && <View style={styles.newReportedBadge} />}
           {isUnresolvedButViewed && <View style={styles.unresolvedViewedBadge} />}
         </View>
@@ -809,6 +914,13 @@ Resolved By: ${incident.resolved_by}` : ''}`;
               {logDisplay.action}
             </Text>
           </View>
+          <TouchableOpacity style={styles.deleteButton} onPress={() => deleteNotification(log.ID, 'resident')}>
+            <Ionicons
+              name="trash-bin-outline"
+              size={20}
+              color="#e74c3c"
+            />
+          </TouchableOpacity>
           {isNew && <View style={styles.newCommunityAlertBadge} />}
         </View>
       </TouchableOpacity>
@@ -843,8 +955,8 @@ Resolved By: ${incident.resolved_by}` : ''}`;
   };
 
   // Separate logs into new and viewed
-  const newNotifications = logs.filter(log => !viewedNotifications.includes(log.ID));
-  const viewedNotificationsList = logs.filter(log => viewedNotifications.includes(log.ID));
+  const newNotifications = logs.filter(log => !viewedNotifications.includes(log.ID) && !deletedNotifications.includes(log.ID));
+  const viewedNotificationsList = logs.filter(log => viewedNotifications.includes(log.ID) && !deletedNotifications.includes(log.ID));
 
   // Helper function to format resident log display text
   const getResidentLogDisplayText = (log: LogEntry) => {
@@ -875,8 +987,8 @@ Resolved By: ${incident.resolved_by}` : ''}`;
   };
 
   // Separate patrol logs into new and viewed
-  const newPatrolLogs = patrolLogs.filter(log => !viewedPatrolLogs.includes(log.ID));
-  const viewedPatrolLogsList = patrolLogs.filter(log => viewedPatrolLogs.includes(log.ID));
+  const newPatrolLogs = patrolLogs.filter(log => !viewedPatrolLogs.includes(log.ID) && !deletedPatrolLogs.includes(log.ID));
+  const viewedPatrolLogsList = patrolLogs.filter(log => viewedPatrolLogs.includes(log.ID) && !deletedPatrolLogs.includes(log.ID));
 
   // Render notification item
   const renderNotificationItem = (log: LogEntry, isNew: boolean) => {
@@ -912,6 +1024,13 @@ Resolved By: ${incident.resolved_by}` : ''}`;
               </Text>
             )}
           </View>
+          <TouchableOpacity style={styles.deleteButton} onPress={() => deleteNotification(log.ID, 'log')}>
+            <Ionicons
+              name="trash-bin-outline"
+              size={20}
+              color="#e74c3c"
+            />
+          </TouchableOpacity>
           {isNew && <View style={styles.newBadge} />}
         </View>
       </TouchableOpacity>
@@ -952,6 +1071,13 @@ Resolved By: ${incident.resolved_by}` : ''}`;
               </Text>
             )}
           </View>
+          <TouchableOpacity style={styles.deleteButton} onPress={() => deleteNotification(log.ID, 'patrol')}>
+            <Ionicons
+              name="trash-bin-outline"
+              size={20}
+              color="#e74c3c"
+            />
+          </TouchableOpacity>
           {isNew && <View style={styles.newIncidentReportBadge} />}
         </View>
       </TouchableOpacity>
@@ -981,13 +1107,13 @@ Resolved By: ${incident.resolved_by}` : ''}`;
     assignedCategorized.newIncidents.length +
     reportedCategorized.newIncidents.length +
     newPatrolLogs.length +
-    newResidentLogs.length;
+    newResidentLogs.length;  
   
   const totalViewedNotifications = viewedNotificationsList.length +
     assignedCategorized.viewedUnresolved.length +
     assignedCategorized.resolved.length +
     reportedCategorized.viewedUnresolved.length +
-    reportedCategorized.resolved.length +
+    reportedCategorized.resolved.length +    
     viewedPatrolLogsList.length +
     viewedResidentLogsList.length;
 
@@ -1210,6 +1336,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#f8ffF8",
     borderLeftWidth: 4,
     borderLeftColor: "#4CAF50",
+  },
+  deleteButton: {
+    marginLeft: 10,
+    padding: 5,
+    justifyContent: 'center',
   },
   viewedNotification: {
     backgroundColor: "#fff",

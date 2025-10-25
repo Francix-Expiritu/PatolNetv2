@@ -192,6 +192,8 @@ const NavBar: React.FC<NavBarProps> = ({ username, userImage, userRole }) => {
               { text: "Dismiss", style: "cancel" }
             ]
           );
+          // Mark as seen immediately to prevent re-alerting
+          saveState(newLogs[0].ID, undefined, undefined, undefined, undefined);
         }
       } else {
         setUnreadLogCount(0); // No logs, so no unread.
@@ -231,6 +233,8 @@ const NavBar: React.FC<NavBarProps> = ({ username, userImage, userRole }) => {
               { text: "Dismiss", style: "cancel" }
             ]
           );
+          // Mark as seen immediately to prevent re-alerting
+          saveState(undefined, undefined, undefined, newLogs[0].ID, undefined);
         }
       } else {
         setUnreadResidentLogCount(0); // No logs, so no unread.
@@ -269,6 +273,8 @@ const NavBar: React.FC<NavBarProps> = ({ username, userImage, userRole }) => {
               { text: "Dismiss", style: "cancel" }
             ]
           );
+          // Mark as seen immediately to prevent re-alerting
+          saveState(undefined, undefined, undefined, undefined, newLogs[0].ID);
         }
       } else {
         setUnreadPatrolLogCount(0); // No logs, so no unread.

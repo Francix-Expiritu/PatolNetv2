@@ -165,6 +165,47 @@ function IncidentReport() {
   };
   // ================================================================
 
+  const handleAssignTanod = async () => {
+    if (!selectedIncident || !selectedTanod) {
+      alert("Please select a tanod to assign.");
+      return;
+    }
+
+    setIsUpdating(true);
+
+    try {
+      const res = await fetch(`${BASE_URL}/api/incidents/${selectedIncident.id}/assign`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ tanod_id: selectedTanod }), // Assuming selectedTanod holds the tanod's ID
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.success) {
+        // Update the incident in local state to "In Progress"
+        setIncidents((prev) =>
+          prev.map((inc) =>
+            inc.id === selectedIncident.id ? { ...inc, status: "In Progress" } : inc
+          )
+        );
+
+        closeAssignModal(); // Close modal and clear state
+        alert("Tanod assigned successfully and incident is now In Progress.");
+      } else {
+        const msg = data.message || `Server responded with status ${res.status}`;
+        alert("Failed to assign tanod: " + msg);
+      }
+    } catch (err) {
+      console.error("Error assigning tanod:", err);
+      alert("An error occurred while assigning the tanod.");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   // keep your existing assign/resolved handlers (omitted here for brevity)
   // ... (you can keep the rest of your existing handlers like handleAssignTanod, handleMarkAsResolved)
 
@@ -306,9 +347,7 @@ function IncidentReport() {
         setSelectedTanod={setSelectedTanod}
         isUpdating={isUpdating}
         onClose={closeAssignModal}
-        onAssignTanod={() => {
-          /* your assign handler if you have it */
-        }}
+        onAssignTanod={handleAssignTanod}
       />
 
       {/* Mark as Resolved Confirmation Modal */}
