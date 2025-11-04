@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
+// To implement translations, you would first install react-i18next:
+// npm install react-i18next i18next
+import { useTranslation, Trans } from 'react-i18next';
 import './About.css';
 
 const About = () => {
   const [activeTab, setActiveTab] = useState('mission');
   const [isVisible, setIsVisible] = useState({});
+  const { t, i18n } = useTranslation();
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -28,39 +32,39 @@ const About = () => {
   }, []);
 
   const stats = [
-    { number: '50K+', label: 'Active Users' },
-    { number: '200+', label: 'Barangays Served' },
-    { number: '99.9%', label: 'Uptime' },
-    { number: '24/7', label: 'Support' }
+    { number: '50K+', labelKey: 'stats.activeUsers' },
+    { number: '200+', labelKey: 'stats.barangaysServed' },
+    { number: '99.9%', labelKey: 'stats.uptime' },
+    { number: '24/7', labelKey: 'stats.support' }
   ];
 
   const features = [
     {
       icon: '🚨',
-      title: 'Real-Time Alerts',
-      description: 'Instant notifications keep communities informed and prepared'
+      titleKey: 'features.realTimeAlerts.title',
+      descriptionKey: 'features.realTimeAlerts.description'
     },
     {
       icon: '📱',
-      title: 'Mobile-First Design',
-      description: 'Seamless experience across all devices and platforms'
+      titleKey: 'features.mobileFirst.title',
+      descriptionKey: 'features.mobileFirst.description'
     },
     {
       icon: '🎯',
-      title: 'Precise Location',
-      description: 'GPS-enabled reporting for accurate incident mapping'
+      titleKey: 'features.preciseLocation.title',
+      descriptionKey: 'features.preciseLocation.description'
     },
     {
       icon: '🤝',
-      title: 'Community Driven',
-      description: 'Built for barangays, by people who understand communities'
+      titleKey: 'features.communityDriven.title',
+      descriptionKey: 'features.communityDriven.description'
     }
   ];
 
   const sectionTitleStyle = {
     fontSize: '2.5rem',
     color: 'black',
-    fontWeight: 'bold',
+    fontWeight: 'bold', 
     backgroundColor: 'transparent',
   };
 
@@ -70,15 +74,22 @@ const About = () => {
       <section className="hero-section">
         <div className="container">
           <div className="hero-content">
+            <div className="language-switcher">
+              <button onClick={() => i18n.changeLanguage('en')} className={i18n.language === 'en' ? 'active' : ''}>EN</button>
+              <button onClick={() => i18n.changeLanguage('tl')} className={i18n.language === 'tl' ? 'active' : ''}>TL</button>
+            </div>
             <h1 className="hero-title">
-              Building <span className="highlight">Safer</span> Communities
+              <Trans i18nKey="hero.title">
+                Building <span className="highlight">Safer</span> Communities
+              </Trans>
             </h1>
             <p className="hero-subtitle">
-              Connecting residents with local authorities through innovative technology
+              {t('hero.subtitle')}
             </p>
             <div className="hero-buttons">
-              <button className="btn btn-primary">Get Started</button>
-              <button className="btn btn-secondary">Learn More</button>
+              {/* These buttons are likely for navigation, text can be translated if needed */}
+              <button className="btn btn-primary">{t('hero.getStarted')}</button>
+              <button className="btn btn-secondary">{t('hero.learnMore')}</button>
             </div>
           </div>
         </div>
@@ -88,10 +99,10 @@ const About = () => {
       <section className="stats-section" data-animate id="stats">
         <div className="container">
           <div className={`stats-grid ${isVisible.stats ? 'visible' : ''}`}>
-            {stats.map((stat, index) => (
+            {stats.map((stat, index) => ( 
               <div key={index} className="stat-card">
                 <div className="stat-number">{stat.number}</div>
-                <div className="stat-label">{stat.label}</div>
+                <div className="stat-label">{t(stat.labelKey)}</div>
               </div>
             ))}
           </div>
@@ -101,7 +112,7 @@ const About = () => {
       {/* Mission Section */}
       <section className="mission-section">
         <div className="container">
-          <h2 className="section-title" style={sectionTitleStyle}>Our Purpose</h2>
+          <h2 className="section-title" style={sectionTitleStyle}>{t('purpose.title')}</h2>
           
           <div className="tabs">
             <div className="tab-nav">
@@ -109,7 +120,7 @@ const About = () => {
                 <button
                   key={tab}
                   className={`tab-btn ${activeTab === tab ? 'active' : ''}`}
-                  onClick={() => setActiveTab(tab)}
+                  onClick={() => setActiveTab(tab)} 
                 >
                   {tab.charAt(0).toUpperCase() + tab.slice(1)}
                 </button>
@@ -119,37 +130,37 @@ const About = () => {
             <div className="tab-content">
               {activeTab === 'mission' && (
                 <div className="content-panel">
-                  <h3>Our Mission</h3>
-                  <p>To empower communities with cutting-edge technology that enables rapid response to incidents and fosters a culture of collective safety and vigilance.</p>
+                  <h3>{t('purpose.mission.title')}</h3>
+                  <p>{t('purpose.mission.text')}</p>
                 </div>
               )}
               
               {activeTab === 'vision' && (
                 <div className="content-panel">
-                  <h3>Our Vision</h3>
-                  <p>A world where every community is equipped with the tools they need to ensure the safety and well-being of all residents through seamless digital communication.</p>
+                  <h3>{t('purpose.vision.title')}</h3>
+                  <p>{t('purpose.vision.text')}</p>
                 </div>
               )}
               
               {activeTab === 'values' && (
                 <div className="content-panel">
-                  <h3>Our Values</h3>
+                  <h3>{t('purpose.values.title')}</h3>
                   <div className="values-grid">
                     <div className="value-item">
-                      <strong>Community First</strong>
-                      <p>Every decision is made with community benefit in mind</p>
+                      <strong>{t('purpose.values.community.title')}</strong>
+                      <p>{t('purpose.values.community.text')}</p>
                     </div>
                     <div className="value-item">
-                      <strong>Innovation</strong>
-                      <p>Continuous improvement through technology</p>
+                      <strong>{t('purpose.values.innovation.title')}</strong>
+                      <p>{t('purpose.values.innovation.text')}</p>
                     </div>
                     <div className="value-item">
-                      <strong>Transparency</strong>
-                      <p>Open communication and honest practices</p>
+                      <strong>{t('purpose.values.transparency.title')}</strong>
+                      <p>{t('purpose.values.transparency.text')}</p>
                     </div>
                     <div className="value-item">
-                      <strong>Reliability</strong>
-                      <p>Dependable service when it matters most</p>
+                      <strong>{t('purpose.values.reliability.title')}</strong>
+                      <p>{t('purpose.values.reliability.text')}</p>
                     </div>
                   </div>
                 </div>
@@ -162,13 +173,13 @@ const About = () => {
       {/* Features Section */}
       <section className="features-section" data-animate id="features">
         <div className="container">
-          <h2 className="section-title" style={sectionTitleStyle}>What Makes Us Different</h2>
+          <h2 className="section-title" style={sectionTitleStyle}>{t('features.mainTitle')}</h2>
           <div className={`features-grid ${isVisible.features ? 'visible' : ''}`}>
             {features.map((feature, index) => (
               <div key={index} className="feature-card">
                 <div className="feature-icon">{feature.icon}</div>
-                <h3 className="feature-title">{feature.title}</h3>
-                <p className="feature-description">{feature.description}</p>
+                <h3 className="feature-title">{t(feature.titleKey)}</h3>
+                <p className="feature-description">{t(feature.descriptionKey)}</p>
               </div>
             ))}
           </div>
@@ -180,21 +191,21 @@ const About = () => {
         <div className="container">
           <div className="preview-content">
             <div className="preview-text">
-              <h2>Experience PatrolNet</h2>
-              <p>See how our intuitive interface makes community safety accessible to everyone</p>
+              <h2>{t('preview.title')}</h2>
+              <p>{t('preview.subtitle')}</p>
               
               <div className="feature-list">
                 <div className="feature-item">
                   <span className="check">✓</span>
-                  <span>One-tap incident reporting</span>
+                  <span>{t('preview.feature1')}</span>
                 </div>
                 <div className="feature-item">
                   <span className="check">✓</span>
-                  <span>Real-time status updates</span>
+                  <span>{t('preview.feature2')}</span>
                 </div>
                 <div className="feature-item">
                   <span className="check">✓</span>
-                  <span>Community incident map</span>
+                  <span>{t('preview.feature3')}</span>
                 </div>
               </div>
             </div>
@@ -233,11 +244,11 @@ const About = () => {
       <section className="cta-section">
         <div className="container">
           <div className="cta-content">
-            <h2>Ready to Make Your Community Safer?</h2>
-            <p>Join thousands of residents already using PatrolNet to build stronger, safer neighborhoods</p>
+            <h2>{t('cta.title')}</h2>
+            <p>{t('cta.subtitle')}</p>
             <div className="cta-buttons">
-              <button className="btn btn-primary">Download App</button>
-              <button className="btn btn-outline">Contact Us</button>
+              <button className="btn btn-primary">{t('cta.download')}</button>
+              <button className="btn btn-outline">{t('cta.contact')}</button>
             </div>
           </div>
         </div>

@@ -1,0 +1,70 @@
+{
+  "hero": {
+    "title": "Building <1>Safer</1> Communities",
+    "subtitle": "Connecting residents with local authorities through innovative technology",
+    "getStarted": "Get Started",
+    "learnMore": "Learn More"
+  },
+  "stats": {
+    "activeUsers": "Active Users",
+    "barangaysServed": "Barangays Served",
+    "uptime": "Uptime",
+    "support": "Support"
+  },
+  "purpose": {
+    "title": "Our Purpose",
+    "mission": {
+      "title": "Our Mission",
+      "text": "To empower communities with cutting-edge technology that enables rapid response to incidents and fosters a culture of collective safety and vigilance."
+    },
+    "vision": {
+      "title": "Our Vision",
+      "text": "A world where every community is equipped with the tools they need to ensure the safety and well-being of all residents through seamless digital communication."
+    },
+    "values": {
+        "title": "Our Values",
+        "community": { "title": "Community First", "text": "Every decision is made with community benefit in mind" },
+        "innovation": { "title": "Innovation", "text": "Continuous improvement through technology" },
+        "transparency": {
+          "title": "Transparency",
+          "text": "Open communication and honest practices"
+        },
+        "reliability": {
+          "title": "Reliability",
+          "text": "Dependable service when it matters most"
+        }
+    }
+  },
+  "features": {
+    "mainTitle": "What Makes Us Different",
+    "realTimeAlerts": {
+      "title": "Real-Time Alerts",
+      "description": "Instant notifications keep communities informed and prepared"
+    },
+    "mobileFirst": {
+        "title": "Mobile-First Design",
+        "description": "Seamless experience across all devices and platforms"
+    },
+    "preciseLocation": {
+        "title": "Precise Location",
+        "description": "GPS-enabled reporting for accurate incident mapping"
+    },
+    "communityDriven": {
+        "title": "Community Driven",
+        "description": "Built for barangays, by people who understand communities"
+    }
+  },
+  "preview": {
+    "title": "Experience PatrolNet",
+    "subtitle": "See how our intuitive interface makes community safety accessible to everyone",
+    "feature1": "One-tap incident reporting",
+    "feature2": "Real-time status updates",
+    "feature3": "Community incident map"
+  },
+  "cta": {
+    "title": "Ready to Make Your Community Safer?",
+    "subtitle": "Join thousands of residents already using PatrolNet to build stronger, safer neighborhoods",
+    "download": "Download App",
+    "contact": "Contact Us"
+  }
+}

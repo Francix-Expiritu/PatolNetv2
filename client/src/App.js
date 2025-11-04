@@ -20,6 +20,7 @@ import Messages from "./components/Messages.jsx";
 import ContactUs from "./components/ContactUs.jsx";
 import ResidentLandingPage from "./components/ResidentLandingPage.jsx";
 import TouristSpots from "./components/TouristSpots.jsx";
+import './i18n'; 
 
 // Components for Activities & Announcements
 import Activities from "./components/Activities.jsx";

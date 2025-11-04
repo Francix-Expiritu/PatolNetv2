@@ -163,7 +163,7 @@ function IncidentReport() {
       setIsUpdating(false);
     }
   };
-  // ================================================================
+
 
   const handleAssignTanod = async () => {
     if (!selectedIncident || !selectedTanod) {
@@ -206,8 +206,7 @@ function IncidentReport() {
     }
   };
 
-  // keep your existing assign/resolved handlers (omitted here for brevity)
-  // ... (you can keep the rest of your existing handlers like handleAssignTanod, handleMarkAsResolved)
+
 
   const handleMarkAsResolved = async () => {
     if (!selectedIncident) return;

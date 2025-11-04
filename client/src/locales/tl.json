@@ -1,0 +1,76 @@
+{
+  "hero": {
+    "title": "Bumubuo ng mas <1>Ligtas</1> na mga Komunidad",
+    "subtitle": "Pag-uugnay sa mga residente sa mga lokal na awtoridad sa pamamagitan ng makabagong teknolohiya",
+    "getStarted": "Magsimula",
+    "learnMore": "Alamin Pa"
+  },
+  "stats": {
+    "activeUsers": "Mga Aktibong Gumagamit",
+    "barangaysServed": "Mga Barangay na Pinaglilingkuran",
+    "uptime": "Uptime",
+    "support": "Suporta"
+  },
+  "purpose": {
+    "title": "Ang Aming Layunin",
+    "mission": {
+      "title": "Ang Aming Misyon",
+      "text": "Bigyan ng kapangyarihan ang mga komunidad gamit ang makabagong teknolohiya na nagbibigay-daan sa mabilis na pagtugon sa mga insidente at nagtataguyod ng kultura ng kolektibong kaligtasan at pagbabantay."
+    },
+    "vision": {
+      "title": "Ang Aming Bisyon",
+      "text": "Isang mundo kung saan ang bawat komunidad ay may mga kagamitan na kailangan nila upang matiyak ang kaligtasan at kapakanan ng lahat ng residente sa pamamagitan ng tuluy-tuloy na digital na komunikasyon."
+    },
+    "values": {
+      "title": "Ang Aming mga Halaga",
+      "community": {
+        "title": "Komunidad Muna",
+        "text": "Bawat desisyon ay ginagawa na isinasaalang-alang ang kapakanan ng komunidad"
+      },
+      "innovation": {
+        "title": "Inobasyon",
+        "text": "Patuloy na pagpapabuti sa pamamagitan ng teknolohiya"
+      },
+      "transparency": {
+        "title": "Pagiging Transparent",
+        "text": "Bukas na komunikasyon at tapat na mga kasanayan"
+      },
+      "reliability": {
+        "title": "Maaasahan",
+        "text": "Serbisyong maaasahan kapag ito ay pinakamahalaga"
+      }
+    }
+  },
+  "features": {
+    "mainTitle": "Ano ang Nagpapaiba sa Amin",
+    "realTimeAlerts": {
+      "title": "Mga Real-Time na Alerto",
+      "description": "Ang mga agarang notipikasyon ay nagpapanatiling may kaalaman at handa ang mga komunidad"
+    },
+    "mobileFirst": {
+      "title": "Disenyong Mobile-First",
+      "description": "Walang-hirap na karanasan sa lahat ng device at platform"
+    },
+    "preciseLocation": {
+      "title": "Tumpak na Lokasyon",
+      "description": "Pag-uulat na may GPS para sa tumpak na pagmamapa ng insidente"
+    },
+    "communityDriven": {
+      "title": "Mula sa Komunidad",
+      "description": "Ginawa para sa mga barangay, ng mga taong nakauunawa sa mga komunidad"
+    }
+  },
+  "preview": {
+    "title": "Damhin ang PatrolNet",
+    "subtitle": "Tingnan kung paano ginagawang abot-kamay ng aming madaling gamiting interface ang kaligtasan ng komunidad",
+    "feature1": "Isang-pindot na pag-uulat ng insidente",
+    "feature2": "Mga real-time na update sa status",
+    "feature3": "Mapa ng insidente sa komunidad"
+  },
+  "cta": {
+    "title": "Handa Ka na bang Gawing mas Ligtas ang Iyong Komunidad?",
+    "subtitle": "Sumali sa libu-libong residente na gumagamit na ng PatrolNet upang bumuo ng mas matatag at mas ligtas na mga kapitbahayan",
+    "download": "I-download ang App",
+    "contact": "Makipag-ugnayan"
+  }
+}

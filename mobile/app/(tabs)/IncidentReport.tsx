@@ -726,9 +726,11 @@ const IncidentReport: React.FC = () => {
 
           <Text style={styles.label}>Location Address:</Text>
           <TextInput
-            style={[styles.input, styles.readOnlyInput]}
+            style={[styles.input, isViewMode && styles.readOnlyInput]}
             value={address}
-            editable={false}
+            editable={!isViewMode}
+            onChangeText={setAddress}
+            placeholder="Enter address or use map/GPS"
           />
 
           <View style={styles.mapContainer}>

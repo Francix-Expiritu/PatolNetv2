@@ -92,9 +92,10 @@
 
 /* Hero Section */
 .hero-section {
- 
+  background: linear-gradient(135deg, var(--primary-red), var(--secondary-red));
   padding: 8rem 0 6rem;
   text-align: center;
+  position: relative; /* This ensures the language switcher is positioned relative to the hero section */
 }
 
 .hero-content {
@@ -107,7 +108,7 @@
   font-weight: 800;
   line-height: 1.1;
   margin-bottom: 1.5rem;
-  color: var(--text-primary);
+  color: var(--white); /* Changed to white to be visible on the new background */
 }
 
 .highlight {
@@ -128,7 +129,7 @@
 
 .hero-subtitle {
   font-size: 1.25rem;
-  color: var(--text-secondary);
+  color: var(--white); /* Changed to white for better visibility */
   margin-bottom: 2.5rem;
   line-height: 1.6;
 }
@@ -140,6 +141,21 @@
   flex-wrap: wrap;
 }
 
+/* Adjusting hero buttons for the new dark background */
+.hero-buttons .btn-primary {
+  background: var(--white);
+  color: var(--primary-red);
+}
+
+.hero-buttons .btn-primary:hover {
+  background: var(--gray-100);
+}
+
+.hero-buttons .btn-secondary {
+  background: transparent;
+  color: var(--white);
+  border-color: var(--white);
+}
 /* Stats Section */
 .stats-section {
   padding: 5rem 0;
@@ -594,4 +610,28 @@
   .cta-content h2 {
     font-size: 2rem;
   }
+}
+
+.language-switcher {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  z-index: 10;
+}
+
+.language-switcher button {
+  background-color: rgba(255, 255, 255, 0.2);
+  border: 1px solid white;
+  color: white;
+  padding: 5px 10px;
+  margin-left: 5px;
+  cursor: pointer;
+  border-radius: 5px;
+  transition: background-color 0.3s;
+}
+
+.language-switcher button:hover,
+.language-switcher button.active {
+  background-color: white;
+  color: #333;
 }
