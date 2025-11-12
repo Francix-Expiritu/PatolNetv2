@@ -38,6 +38,7 @@ interface UserTimeStatus {
   };
   currentTime: string;
   hasTimeInToday: boolean;
+  hasValidTime: boolean; // Add this to use the server's validation
   hasTimeOutToday: boolean;
 }
 
@@ -201,25 +202,16 @@ const TanodAttendance: React.FC = () => {
     );
   };
 
-  const formatScheduleTime = (timeString: string | null) => {
-    if (!timeString) return "No schedule assigned";
-    
-    try {
-      const date = new Date(timeString);
-      return date.toLocaleString('en-US', {
-        weekday: 'short',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true
-      });
-    } catch (error) {
-      return "Invalid schedule";
+  // The server now sends a pre-formatted string with month, day, and time, so we just display it.
+  const formatScheduleTime = (scheduleString: string | null) => {
+    if (!scheduleString || scheduleString === "No schedule assigned") {
+      return "No schedule assigned";
     }
+    return scheduleString; // e.g., "December - Monday, 9:00 AM - 5:00 PM"
   };
 
   const formatLogTime = (timeString: string) => {
+    if (!timeString) return "N/A";
     try {
       const date = new Date(timeString);
       return date.toLocaleTimeString('en-US', {
@@ -260,7 +252,7 @@ const TanodAttendance: React.FC = () => {
     }
   };
 
-  const canTimeIn = !userStatus?.hasTimeInToday;
+  const canTimeIn = !userStatus?.hasTimeInToday && !!userStatus?.hasValidTime;
   const canTimeOut = userStatus?.hasTimeInToday && !userStatus?.hasTimeOutToday;
   const statusInfo = getStatusInfo();
 
@@ -389,10 +381,10 @@ const TanodAttendance: React.FC = () => {
                     name={canTimeIn ? "enter-outline" : "checkmark-circle"} 
                     size={24} 
                     color={canTimeIn ? "#fff" : "#28a745"} 
-                  />
+                  /> 
                   <Text style={[
                     styles.actionButtonText,
-                    !canTimeIn && styles.actionButtonTextDisabled
+                    !canTimeIn && styles.actionButtonTextDisabled,
                   ]}>
                     {canTimeIn ? "START SHIFT" : "ALREADY ON DUTY"}
                   </Text>

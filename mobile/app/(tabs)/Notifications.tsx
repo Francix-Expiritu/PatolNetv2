@@ -1,5 +1,6 @@
 // Notifications.tsx - Displays user logs separated into new and viewed notifications
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
+
 import {
   View,
   Text,
@@ -48,13 +49,104 @@ interface IncidentReport {
   resolved_at?: string;
 }
 
+type NotificationType = 'log' | 'patrol' | 'resident' | 'assigned' | 'reported';
+
+interface NotificationItemProps {
+  id: number;
+  type: NotificationType;
+  title: string;
+  date: string;
+  time: string;
+  details: (string | React.ReactElement)[];
+  isNew: boolean;
+  isResolved?: boolean;
+  isUnresolvedButViewed?: boolean;
+  resolvedByCurrentUser?: boolean;
+  onPress: () => void;
+  onDelete: () => void;
+  iconName: keyof typeof Ionicons.glyphMap;
+  iconColor: string;
+  styleConfig: {
+    container: object;
+    title: object;
+    badge?: object;
+  };
+}
+
+const NotificationItem: React.FC<NotificationItemProps> = React.memo(({
+  id, type, title, date, time, details, isNew, isResolved, isUnresolvedButViewed, resolvedByCurrentUser,
+  onPress, onDelete, iconName, iconColor, styleConfig
+}) => {
+  return (
+    <TouchableOpacity
+      key={`${type}_${id}`}
+      style={[styles.notificationItem, styleConfig.container]}
+      onPress={onPress}
+    >
+      <View style={styles.notificationHeader}>
+        <View style={styles.notificationIcon}>
+          <Ionicons name={iconName} size={20} color={iconColor} />
+        </View>
+        <View style={styles.notificationContent}>
+          <Text style={[styles.notificationTitle, styleConfig.title]}>{title}</Text>
+          <Text style={styles.notificationDate}>{date} at {time}</Text>
+          {details.map((detail, index) =>
+            typeof detail === 'string' ? (
+              <Text key={index} style={styles.notificationLocation}>{detail}</Text>
+            ) : (
+              <React.Fragment key={index}>{detail}</React.Fragment>
+            )
+          )}
+           {resolvedByCurrentUser && (
+              <Text style={styles.resolvedByMeText}>✓ Resolved by you</Text>
+            )}
+            {isUnresolvedButViewed && (
+              <Text style={styles.unresolvedViewedText}>
+                {type === 'assigned' ? '⚠️ Needs attention' : '⏳ Awaiting response'}
+              </Text>
+            )}
+        </View>
+        <TouchableOpacity style={styles.deleteButton} onPress={onDelete}>
+          <Ionicons name="trash-bin-outline" size={20} color="#e74c3c" />
+        </TouchableOpacity>
+        {styleConfig.badge && <View style={styleConfig.badge} />}
+      </View>
+    </TouchableOpacity>
+  );
+});
+
 const Notifications: React.FC = () => {
-  const [logs, setLogs] = useState<LogEntry[]>([]);
-  const [viewedNotifications, setViewedNotifications] = useState<number[]>([]);
-  const [patrolLogs, setPatrolLogs] = useState<LogEntry[]>([]);
-  const [residentLogs, setResidentLogs] = useState<LogEntry[]>([]);
-  const [viewedResidentLogs, setViewedResidentLogs] = useState<number[]>([]);
-  const [viewedPatrolLogs, setViewedPatrolLogs] = useState<number[]>([]);
+  // State Consolidation
+  const [notifications, setNotifications] = useState<{
+    logs: LogEntry[];
+    patrolLogs: LogEntry[];
+    residentLogs: LogEntry[];
+    assignedIncidents: IncidentReport[];
+    reportedIncidents: IncidentReport[];
+  }>({
+    logs: [],
+    patrolLogs: [],
+    residentLogs: [],
+    assignedIncidents: [],
+    reportedIncidents: [],
+  });
+
+  const [viewedIds, setViewedIds] = useState<Record<NotificationType, number[]>>({
+    log: [],
+    patrol: [],
+    resident: [],
+    assigned: [],
+    reported: [],
+  });
+
+  const [deletedIds, setDeletedIds] = useState<Record<NotificationType, number[]>>({
+    log: [],
+    patrol: [],
+    resident: [],
+    assigned: [],
+    reported: [],
+  });
+
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   
@@ -63,31 +155,18 @@ const Notifications: React.FC = () => {
   const { username, incidentNotifications = [] } = route.params;
   const [userRole, setUserRole] = useState<string>('');
 
-  // Separate assigned and reported incidents
-  const [assignedIncidents, setAssignedIncidents] = useState<IncidentReport[]>([]);
-  const [reportedIncidents, setReportedIncidents] = useState<IncidentReport[]>([]);
-  const [viewedAssignedIncidents, setViewedAssignedIncidents] = useState<number[]>([]);
-  const [viewedReportedIncidents, setViewedReportedIncidents] = useState<number[]>([]);
-
-  // State for deleted notifications
-  const [deletedNotifications, setDeletedNotifications] = useState<number[]>([]);
-  const [deletedPatrolLogs, setDeletedPatrolLogs] = useState<number[]>([]);
-  const [deletedResidentLogs, setDeletedResidentLogs] = useState<number[]>([]);
-  const [deletedAssignedIncidents, setDeletedAssignedIncidents] = useState<number[]>([]);
-  const [deletedReportedIncidents, setDeletedReportedIncidents] = useState<number[]>([]);
-
   // Helper function to categorize incidents
-  const categorizeIncidents = (incidents: IncidentReport[], viewedIds: number[]) => {
+  const categorizeIncidents = (incidents: IncidentReport[], currentViewedIds: number[]) => {
     const unresolved = incidents.filter(incident => incident.status !== 'Resolved');
     const resolved = incidents.filter(incident => incident.status === 'Resolved');
     
     const newIncidents = unresolved.filter(incident => 
-      !viewedIds.includes(incident.id) && 
+      !currentViewedIds.includes(incident.id) && 
       incident.resolved_by !== username
     );
     
     const viewedUnresolved = unresolved.filter(incident => 
-      viewedIds.includes(incident.id) || 
+      currentViewedIds.includes(incident.id) || 
       incident.resolved_by === username
     );
     
@@ -95,14 +174,14 @@ const Notifications: React.FC = () => {
   };
 
   // Categorize assigned incidents
-  const assignedCategorized = categorizeIncidents(assignedIncidents, viewedAssignedIncidents);
+  const assignedCategorized = categorizeIncidents(notifications.assignedIncidents, viewedIds.assigned);
   
   // Categorize reported incidents
-  const reportedCategorized = categorizeIncidents(reportedIncidents, viewedReportedIncidents);
+  const reportedCategorized = categorizeIncidents(notifications.reportedIncidents, viewedIds.reported);
 
   // Separate resident logs into new and viewed
-  const newResidentLogs = residentLogs.filter(log => !viewedResidentLogs.includes(log.ID) && !deletedResidentLogs.includes(log.ID));
-  const viewedResidentLogsList = residentLogs.filter(log => viewedResidentLogs.includes(log.ID) && !deletedResidentLogs.includes(log.ID));
+  const newResidentLogs = notifications.residentLogs.filter(log => !viewedIds.resident.includes(log.ID) && !deletedIds.resident.includes(log.ID));
+  const viewedResidentLogsList = notifications.residentLogs.filter(log => viewedIds.resident.includes(log.ID) && !deletedIds.resident.includes(log.ID));
 
   const loadUserRole = async () => {
   try {
@@ -115,149 +194,67 @@ const Notifications: React.FC = () => {
   }
 };
 
-  // --- DELETED NOTIFICATIONS ---
-  const loadDeletedState = async () => {
+  const loadStateFromStorage = useCallback(async (stateType: 'viewed' | 'deleted') => {
     try {
-      const [
-        deletedLogs,
-        deletedPatrol,
-        deletedResident,
-        deletedAssigned,
-        deletedReported,
-      ] = await AsyncStorage.multiGet([
-        `deleted_notifications_${username}`,
-        `deleted_patrol_logs_${username}`,
-        `deleted_resident_logs_${username}`,
-        `deleted_assigned_incidents_${username}`,
-        `deleted_reported_incidents_${username}`,
-      ]);
+      const keys: [NotificationType, string][] = [
+        ['log', `deleted_notifications_${username}`],
+        ['patrol', `deleted_patrol_logs_${username}`],
+        ['resident', `deleted_resident_logs_${username}`],
+        ['assigned', `deleted_assigned_incidents_${username}`],
+        ['reported', `deleted_reported_incidents_${username}`],
+      ];
+      const storageKeys = keys.map(k => stateType === 'viewed' ? `viewed_${k[1].split('_').slice(1).join('_')}` : k[1]);
+      const values = await AsyncStorage.multiGet(storageKeys);
 
-      if (deletedLogs[1]) setDeletedNotifications(JSON.parse(deletedLogs[1]));
-      if (deletedPatrol[1]) setDeletedPatrolLogs(JSON.parse(deletedPatrol[1]));
-      if (deletedResident[1]) setDeletedResidentLogs(JSON.parse(deletedResident[1]));
-      if (deletedAssigned[1]) setDeletedAssignedIncidents(JSON.parse(deletedAssigned[1]));
-      if (deletedReported[1]) setDeletedReportedIncidents(JSON.parse(deletedReported[1]));
+      const newState: Record<NotificationType, number[]> = { log: [], patrol: [], resident: [], assigned: [], reported: [] };
+      values.forEach(([key, value], index) => {
+        if (value) {
+          const type = keys[index][0];
+          newState[type] = JSON.parse(value);
+        }
+      });
+
+      if (stateType === 'deleted') {
+        setDeletedIds(newState);
+      } else {
+        setViewedIds(newState);
+      }
     } catch (error) {
-      console.error("Error loading deleted state:", error);
+      console.error(`Error loading ${stateType} state:`, error);
     }
-  };
+  }, [username]);
 
-  const deleteNotification = async (id: number, type: 'log' | 'patrol' | 'resident' | 'assigned' | 'reported') => {
+  const updateStoredIds = useCallback(async (id: number, type: NotificationType, stateType: 'viewed' | 'deleted') => {
+    const stateToUpdate = stateType === 'viewed' ? viewedIds : deletedIds;
+    const setStateToUpdate = stateType === 'viewed' ? setViewedIds : setDeletedIds;
+
+    if (!stateToUpdate[type].includes(id)) {
+      const newIds = { ...stateToUpdate, [type]: [...stateToUpdate[type], id] };
+      setStateToUpdate(newIds);
+      const storageKey = stateType === 'viewed' ? `viewed_${type}_logs_${username}` : `deleted_${type}_logs_${username}`;
+      await AsyncStorage.setItem(storageKey.replace('_logs_', `_${type === 'assigned' || type === 'reported' ? 'incidents' : 'logs'}_`), JSON.stringify(newIds[type]));
+    }
+  }, [viewedIds, deletedIds, username]);
+
+  const deleteNotification = (id: number, type: NotificationType) => {
     Alert.alert("Delete Notification", "Are you sure you want to permanently hide this notification?", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Delete",
         style: "destructive",
-        onPress: async () => {
-          switch (type) {
-            case 'log':
-              const newDeleted = [...deletedNotifications, id];
-              setDeletedNotifications(newDeleted);
-              await AsyncStorage.setItem(`deleted_notifications_${username}`, JSON.stringify(newDeleted));
-              break;
-            case 'patrol':
-              const newDeletedPatrol = [...deletedPatrolLogs, id];
-              setDeletedPatrolLogs(newDeletedPatrol);
-              await AsyncStorage.setItem(`deleted_patrol_logs_${username}`, JSON.stringify(newDeletedPatrol));
-              break;
-            case 'resident':
-              const newDeletedResident = [...deletedResidentLogs, id];
-              setDeletedResidentLogs(newDeletedResident);
-              await AsyncStorage.setItem(`deleted_resident_logs_${username}`, JSON.stringify(newDeletedResident));
-              break;
-            case 'assigned':
-              const newDeletedAssigned = [...deletedAssignedIncidents, id];
-              setDeletedAssignedIncidents(newDeletedAssigned);
-              await AsyncStorage.setItem(`deleted_assigned_incidents_${username}`, JSON.stringify(newDeletedAssigned));
-              break;
-            case 'reported':
-              const newDeletedReported = [...deletedReportedIncidents, id];
-              setDeletedReportedIncidents(newDeletedReported);
-              await AsyncStorage.setItem(`deleted_reported_incidents_${username}`, JSON.stringify(newDeletedReported));
-              break;
-          }
-        },
+        onPress: () => updateStoredIds(id, type, 'deleted'),
       },
     ]);
-  };
-
-  // Load viewed notifications from AsyncStorage
-  const loadViewedNotifications = async () => {
-    try {
-      const viewed = await AsyncStorage.getItem(`viewed_notifications_${username}`);
-      if (viewed) {
-        setViewedNotifications(JSON.parse(viewed));
-      }
-    } catch (error) {
-      console.error("Error loading viewed notifications:", error);
-    }
-  };
-
-  // Save viewed notifications to AsyncStorage
-  const saveViewedNotifications = async (viewedIds: number[]) => {
-    try {
-      await AsyncStorage.setItem(
-        `viewed_notifications_${username}`,
-        JSON.stringify(viewedIds)
-      );
-    } catch (error) {
-      console.error("Error saving viewed notifications:", error);
-    }
-  };
-
-  // Load viewed patrol logs from AsyncStorage
-  const loadViewedPatrolLogs = async () => {
-    try {
-      const viewed = await AsyncStorage.getItem(`viewed_patrol_logs_${username}`);
-      if (viewed) {
-        setViewedPatrolLogs(JSON.parse(viewed));
-      }
-    } catch (error) {
-      console.error("Error loading viewed patrol logs:", error);
-    }
-  };
-
-  // Save viewed patrol logs to AsyncStorage
-  const saveViewedPatrolLogs = async (viewedIds: number[]) => {
-    try {
-      await AsyncStorage.setItem(
-        `viewed_patrol_logs_${username}`,
-        JSON.stringify(viewedIds)
-      );
-    } catch (error) {
-      console.error("Error saving viewed patrol logs:", error);
-    }
-  };
-
-  // Load viewed resident logs from AsyncStorage
-  const loadViewedResidentLogs = async () => {
-    try {
-      const viewed = await AsyncStorage.getItem(`viewed_resident_logs_${username}`);
-      if (viewed) {
-        setViewedResidentLogs(JSON.parse(viewed));
-      }
-    } catch (error) {
-      console.error("Error loading viewed resident logs:", error);
-    }
-  };
-
-  // Save viewed resident logs to AsyncStorage
-  const saveViewedResidentLogs = async (viewedIds: number[]) => {
-    try {
-      await AsyncStorage.setItem(
-        `viewed_resident_logs_${username}`,
-        JSON.stringify(viewedIds)
-      );
-    } catch (error) {
-      console.error("Error saving viewed resident logs:", error);
-    }
   };
 
   // Fetch user logs from API
   const fetchLogs = async () => {
     try {
       const response = await axios.get(`${BASE_URL}/api/logs/${username}`);
-      setLogs(response.data || []);
+      setNotifications(prev => ({
+        ...prev,
+        logs: response.data || []
+      }));
       console.log(`Fetched ${response.data?.length || 0} logs for ${username}`);
     } catch (error) {
       console.error("Error fetching logs:", error);
@@ -269,9 +266,11 @@ const Notifications: React.FC = () => {
   const fetchPatrolLogs = async () => {
     try {
       const response = await axios.get(`${BASE_URL}/api/logs_patrol/${username}`);
-      const userPatrolLogs: LogEntry[] = response.data || [];
-      setPatrolLogs(userPatrolLogs);
-      console.log(`Fetched ${userPatrolLogs.length} patrol logs for ${username}`);
+      setNotifications(prev => ({
+        ...prev,
+        patrolLogs: response.data || []
+      }));
+      console.log(`Fetched ${response.data?.length || 0} patrol logs for ${username}`);
     } catch (error) {
       console.error("Error fetching patrol logs:", error);
     }
@@ -281,59 +280,10 @@ const Notifications: React.FC = () => {
   const fetchResidentLogs = async () => {
     try {
       const response = await axios.get(`${BASE_URL}/api/logs_resident/${username}`);
-      const allResidentLogs: LogEntry[] = response.data || [];
-      setResidentLogs(allResidentLogs);
-      console.log(`Fetched ${allResidentLogs.length} resident logs for ${username}`);
+      setNotifications(prev => ({ ...prev, residentLogs: response.data || [] }));
+      console.log(`Fetched ${response.data?.length || 0} resident logs for ${username}`);
     } catch (error) {
       console.error("Error fetching resident logs:", error);
-    }
-  };
-
-  // Load viewed assigned incidents
-  const loadViewedAssignedIncidents = async () => {
-    try {
-      const viewed = await AsyncStorage.getItem(`viewed_assigned_incidents_${username}`);
-      if (viewed) {
-        setViewedAssignedIncidents(JSON.parse(viewed));
-      }
-    } catch (error) {
-      console.error("Error loading viewed assigned incidents:", error);
-    }
-  };
-
-  // Load viewed reported incidents
-  const loadViewedReportedIncidents = async () => {
-    try {
-      const viewed = await AsyncStorage.getItem(`viewed_reported_incidents_${username}`);
-      if (viewed) {
-        setViewedReportedIncidents(JSON.parse(viewed));
-      }
-    } catch (error) {
-      console.error("Error loading viewed reported incidents:", error);
-    }
-  };
-
-  // Save viewed assigned incidents
-  const saveViewedAssignedIncidents = async (viewedIds: number[]) => {
-    try {
-      await AsyncStorage.setItem(
-        `viewed_assigned_incidents_${username}`,
-        JSON.stringify(viewedIds)
-      );
-    } catch (error) {
-      console.error("Error saving viewed assigned incidents:", error);
-    }
-  };
-
-  // Save viewed reported incidents
-  const saveViewedReportedIncidents = async (viewedIds: number[]) => {
-    try {
-      await AsyncStorage.setItem(
-        `viewed_reported_incidents_${username}`,
-        JSON.stringify(viewedIds)
-      );
-    } catch (error) {
-      console.error("Error saving viewed reported incidents:", error);
     }
   };
 
@@ -342,7 +292,10 @@ const Notifications: React.FC = () => {
     try {
       const response = await axios.get(`${BASE_URL}/api/incidents/assigned/${username}`);
       const fetchedIncidents = response.data || [];
-      setAssignedIncidents(fetchedIncidents);
+      setNotifications(prev => ({
+        ...prev,
+        assignedIncidents: fetchedIncidents
+      }));
       
       // Auto-mark incidents resolved by current user as viewed
       const resolvedByCurrentUser = fetchedIncidents
@@ -353,9 +306,8 @@ const Notifications: React.FC = () => {
         const currentViewed = await AsyncStorage.getItem(`viewed_assigned_incidents_${username}`);
         const existingViewed = currentViewed ? JSON.parse(currentViewed) : [];
         const newViewed = [...new Set([...existingViewed, ...resolvedByCurrentUser])];
-        
-        setViewedAssignedIncidents(newViewed);
-        await saveViewedAssignedIncidents(newViewed);
+        setViewedIds(prev => ({ ...prev, assigned: newViewed }));
+        await AsyncStorage.setItem(`viewed_assigned_incidents_${username}`, JSON.stringify(newViewed));
       }
       
       console.log(`Fetched ${fetchedIncidents.length} assigned incidents for ${username}`);
@@ -369,7 +321,10 @@ const Notifications: React.FC = () => {
     try {
       const response = await axios.get(`${BASE_URL}/api/incidents/reported/${username}`);
       const fetchedIncidents = response.data || [];
-      setReportedIncidents(fetchedIncidents);
+      setNotifications(prev => ({
+        ...prev,
+        reportedIncidents: fetchedIncidents
+      }));
       
       console.log(`Fetched ${fetchedIncidents.length} reported incidents for ${username}`);
     } catch (error) {
@@ -378,70 +333,32 @@ const Notifications: React.FC = () => {
   };
 
   // Load data on component mount
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    await Promise.all([
+      loadStateFromStorage('viewed'),
+      loadStateFromStorage('deleted'),
+      loadUserRole(),
+      fetchLogs(),
+      fetchPatrolLogs(),
+      fetchResidentLogs(),
+      fetchAssignedIncidents(),
+      fetchReportedIncidents(),
+    ]);
+    
+    if (incidentNotifications.length > 0) {
+      setNotifications(prev => ({ ...prev, assignedIncidents: incidentNotifications }));
+    }
+
+    setLoading(false);
+  }, [username, loadStateFromStorage]);
+
   useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      await loadViewedNotifications();
-      await loadViewedPatrolLogs();
-      await loadViewedResidentLogs();
-      await loadViewedAssignedIncidents();
-      await loadViewedReportedIncidents();
-      await loadUserRole();
-      await fetchLogs();
-      await loadDeletedState();
-      await fetchPatrolLogs();
-      await fetchResidentLogs();
-      await fetchAssignedIncidents();
-      await fetchReportedIncidents();
-      
-      // Set incidents from navigation params if available
-      if (incidentNotifications.length > 0) {
-        setAssignedIncidents(incidentNotifications);
-      }
-  
-      setLoading(false);
-    };
     loadData();
-  }, [username]);
-
-  // Mark assigned incident as viewed
-  const markAssignedIncidentAsViewed = async (incidentId: number) => {
-    if (!viewedAssignedIncidents.includes(incidentId)) {
-      const newViewedIds = [...viewedAssignedIncidents, incidentId];
-      setViewedAssignedIncidents(newViewedIds);
-      await saveViewedAssignedIncidents(newViewedIds);
-    }
-  };
-
-  // Mark reported incident as viewed
-  const markReportedIncidentAsViewed = async (incidentId: number) => {
-    if (!viewedReportedIncidents.includes(incidentId)) {
-      const newViewedIds = [...viewedReportedIncidents, incidentId];
-      setViewedReportedIncidents(newViewedIds);
-      await saveViewedReportedIncidents(newViewedIds);
-    }
-  };
-
-  // Mark resident log as viewed
-  const markResidentLogAsViewed = async (logId: number) => {
-    if (!viewedResidentLogs.includes(logId)) {
-      const newViewedIds = [...viewedResidentLogs, logId];
-      setViewedResidentLogs(newViewedIds);
-      await saveViewedResidentLogs(newViewedIds);
-    }
-  };
-
-  // Mark patrol log as viewed
-  const markPatrolLogAsViewed = async (logId: number) => {
-    if (!viewedPatrolLogs.includes(logId)) {
-      const newViewedIds = [...viewedPatrolLogs, logId];
-      setViewedPatrolLogs(newViewedIds);
-      await saveViewedPatrolLogs(newViewedIds);
-    }
-  };
+  }, [loadData]);
 
   // Refresh function
-  const onRefresh = async () => {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await fetchLogs();
     await fetchPatrolLogs();
@@ -449,43 +366,37 @@ const Notifications: React.FC = () => {
     await fetchAssignedIncidents();
     await fetchReportedIncidents();
     setRefreshing(false);
-  };
-
-  // Mark notification as viewed
-  const markAsViewed = async (logId: number) => {
-    if (!viewedNotifications.includes(logId)) {
-      const newViewedIds = [...viewedNotifications, logId];
-      setViewedNotifications(newViewedIds);
-      await saveViewedNotifications(newViewedIds);
-    }
-  };
+  }, [username]);
 
   // Mark all notifications as viewed
   const markAllAsViewed = async () => {
-    const allLogIds = logs.map(log => log.ID);
-    const allAssignedIds = assignedIncidents.map(incident => incident.id);
-    const allReportedIds = reportedIncidents.map(incident => incident.id);
-    const allPatrolLogIds = patrolLogs.map(log => log.ID); // Get all patrol log IDs
-    const allResidentLogIds = residentLogs.map(log => log.ID);
-    
-    setViewedNotifications(allLogIds);
-    setViewedAssignedIncidents(allAssignedIds);
-    setViewedReportedIncidents(allReportedIds);
-    setViewedPatrolLogs(allPatrolLogIds);
-    setViewedResidentLogs(allResidentLogIds);
-    
-    await saveViewedNotifications(allLogIds);
-    await saveViewedAssignedIncidents(allAssignedIds);
-    await saveViewedReportedIncidents(allReportedIds);
-    await saveViewedPatrolLogs(allPatrolLogIds);
-    await saveViewedResidentLogs(allResidentLogIds);
+    const newViewedIds: Record<NotificationType, number[]> = {
+      log: notifications.logs.map(log => log.ID),
+      assigned: notifications.assignedIncidents.map(incident => incident.id),
+      reported: notifications.reportedIncidents.map(incident => incident.id),
+      patrol: notifications.patrolLogs.map(log => log.ID),
+      resident: notifications.residentLogs.map(log => log.ID),
+    };
+    setViewedIds(newViewedIds);
+
+    await Promise.all([
+      AsyncStorage.setItem(`viewed_notifications_${username}`, JSON.stringify(newViewedIds.log)),
+      AsyncStorage.setItem(`viewed_assigned_incidents_${username}`, JSON.stringify(newViewedIds.assigned)),
+      AsyncStorage.setItem(`viewed_reported_incidents_${username}`, JSON.stringify(newViewedIds.reported)),
+      AsyncStorage.setItem(`viewed_patrol_logs_${username}`, JSON.stringify(newViewedIds.patrol)),
+      AsyncStorage.setItem(`viewed_resident_logs_${username}`, JSON.stringify(newViewedIds.resident)),
+    ]);
 
     // Also update the 'last seen' IDs in AsyncStorage so the NavBar badge resets
     try {
-      const latestLogId = logs.length > 0 ? Math.max(...logs.map(log => log.ID)) : null;
-      const latestIncidentId = assignedIncidents.length > 0 ? Math.max(...assignedIncidents.map(incident => incident.id)) : null;
-      const latestPatrolLogId = patrolLogs.length > 0 ? Math.max(...patrolLogs.map(log => log.ID)) : null;
-      const latestResidentLogId = residentLogs.length > 0 ? Math.max(...residentLogs.map(log => log.ID)) : null;
+      const { logs, assignedIncidents, patrolLogs, residentLogs } = notifications;
+      const getMaxId = (items: { ID?: number; id?: number }[]) =>
+        items.length > 0 ? Math.max(...items.map(item => item.ID || item.id || 0)) : null;
+
+      const latestLogId = getMaxId(logs);
+      const latestIncidentId = getMaxId(assignedIncidents);
+      const latestPatrolLogId = getMaxId(patrolLogs);
+      const latestResidentLogId = getMaxId(residentLogs);
 
       if (latestLogId) await AsyncStorage.setItem(`lastLogId_${username}`, latestLogId.toString());
       if (latestIncidentId) await AsyncStorage.setItem(`lastIncidentId_${username}`, latestIncidentId.toString());
@@ -511,33 +422,16 @@ const Notifications: React.FC = () => {
         {
           text: "Clear",
           onPress: async () => {
-            setViewedNotifications([]);
-            setViewedPatrolLogs([]);
-            setViewedResidentLogs([]);
-            setViewedAssignedIncidents([]);
-            setViewedReportedIncidents([]);
-            await saveViewedNotifications([]);
-            await saveViewedPatrolLogs([]);
-            await saveViewedResidentLogs([]);
-            await saveViewedAssignedIncidents([]);
-            await saveViewedReportedIncidents([]);
-            setDeletedNotifications([]);
-            setDeletedPatrolLogs([]);
-            setDeletedResidentLogs([]);
-            setDeletedAssignedIncidents([]);
-            setDeletedReportedIncidents([]);
+            const emptyIds = { log: [], patrol: [], resident: [], assigned: [], reported: [] };
+            setViewedIds(emptyIds);
+            setDeletedIds(emptyIds);
 
-            // Also clear the 'last seen' IDs and unread incident IDs from AsyncStorage
-            await AsyncStorage.removeItem(`lastLogId_${username}`);
-            await AsyncStorage.removeItem(`lastIncidentId_${username}`);
-            await AsyncStorage.removeItem(`lastPatrolLogId_${username}`);
-            await AsyncStorage.removeItem(`lastResidentLogId_${username}`);
-            await AsyncStorage.removeItem(`unreadIncidentIds_${username}`);
-            await AsyncStorage.removeItem(`deleted_notifications_${username}`);
-            await AsyncStorage.removeItem(`deleted_patrol_logs_${username}`);
-            await AsyncStorage.removeItem(`deleted_resident_logs_${username}`);
-            await AsyncStorage.removeItem(`deleted_assigned_incidents_${username}`);
-            await AsyncStorage.removeItem(`deleted_reported_incidents_${username}`);
+            const keysToRemove = [
+              `lastLogId_${username}`, `lastIncidentId_${username}`, `lastPatrolLogId_${username}`, `lastResidentLogId_${username}`, `unreadIncidentIds_${username}`,
+              `viewed_notifications_${username}`, `viewed_patrol_logs_${username}`, `viewed_resident_logs_${username}`, `viewed_assigned_incidents_${username}`, `viewed_reported_incidents_${username}`,
+              `deleted_notifications_${username}`, `deleted_patrol_logs_${username}`, `deleted_resident_logs_${username}`, `deleted_assigned_incidents_${username}`, `deleted_reported_incidents_${username}`
+            ];
+            await AsyncStorage.multiRemove(keysToRemove);
           },
         },
       ]
@@ -552,16 +446,15 @@ const Notifications: React.FC = () => {
       });
       
       // Update local state for assigned incidents
-      setAssignedIncidents(prevIncidents => 
-        prevIncidents.map(incident => 
+      setNotifications(prev => ({
+        ...prev,
+        assignedIncidents: prev.assignedIncidents.map(incident =>
           incident.id === incidentId 
             ? { ...incident, status: 'Resolved', resolved_by: username }
             : incident
         )
-      );
-      
-      // Auto-mark as viewed since current user resolved it
-      await markAssignedIncidentAsViewed(incidentId);
+      }));
+      await updateStoredIds(incidentId, 'assigned', 'viewed');
       
       Alert.alert("Success", "Incident marked as resolved");
     } catch (error) {
@@ -615,16 +508,16 @@ Status: ${incident.status}${incident.resolved_by ? `\nResolved By: ${incident.re
           });
           
           // Update local state for reported incidents
-          setReportedIncidents(prevIncidents => 
-            prevIncidents.map(incident => 
+          setNotifications(prev => ({
+            ...prev,
+            reportedIncidents: prev.reportedIncidents.map(incident =>
               incident.id === incidentId 
                 ? { ...incident, status: 'Resolved', resolved_by: username }
                 : incident
             )
-          );
+          }));
           
-          // Auto-mark as viewed since current user resolved it
-          await markReportedIncidentAsViewed(incidentId);
+          await updateStoredIds(incidentId, 'reported', 'viewed');
           
           Alert.alert("Success", "Incident marked as resolved");
         } catch (error) {
@@ -641,16 +534,16 @@ const resolveReportedIncidentAsAdmin = async (incidentId: number) => {
     });
     
     // Update local state for reported incidents
-    setReportedIncidents(prevIncidents => 
-      prevIncidents.map(incident => 
+    setNotifications(prev => ({
+      ...prev,
+      reportedIncidents: prev.reportedIncidents.map(incident =>
         incident.id === incidentId 
           ? { ...incident, status: 'Resolved', resolved_by: 'Admin' }
           : incident
       )
-    );
+    }));
     
-    // Auto-mark as viewed since admin resolved it
-    await markReportedIncidentAsViewed(incidentId);
+    await updateStoredIds(incidentId, 'reported', 'viewed');
     
     Alert.alert("Success", "Incident marked as resolved by Admin");
   } catch (error) {
@@ -738,11 +631,11 @@ Resolved By: ${incident.resolved_by}` : ''}`;
           isUnresolvedButViewed && styles.unresolvedViewedNotification
         ]}
         onPress={() => {
-          markAssignedIncidentAsViewed(incident.id);
+          updateStoredIds(incident.id, 'assigned', 'viewed');
           showAssignedIncidentDetails(incident);
         }}
       >
-        <View style={styles.notificationHeader}>
+        <View style={styles.notificationHeader}> 
           <View style={styles.notificationIcon}>
             <Ionicons 
               name={isResolved ? "checkmark-circle" : (isNew ? "alert-circle" : "alert-circle-outline")}
@@ -786,7 +679,7 @@ Resolved By: ${incident.resolved_by}` : ''}`;
               </Text>
             )}
           </View>
-          <TouchableOpacity style={styles.deleteButton} onPress={() => deleteNotification(incident.id, 'assigned')}>
+          <TouchableOpacity style={styles.deleteButton} onPress={() => deleteNotification(incident.id, 'assigned')}> 
             <Ionicons
               name="trash-bin-outline"
               size={20}
@@ -816,7 +709,7 @@ Resolved By: ${incident.resolved_by}` : ''}`;
           isUnresolvedButViewed && styles.unresolvedViewedNotification
         ]}
         onPress={() => {
-          markReportedIncidentAsViewed(incident.id);
+          updateStoredIds(incident.id, 'reported', 'viewed');
           showReportedIncidentDetails(incident);
         }}
       >
@@ -868,7 +761,7 @@ Resolved By: ${incident.resolved_by}` : ''}`;
               </Text>
             )}
           </View>
-          <TouchableOpacity style={styles.deleteButton} onPress={() => deleteNotification(incident.id, 'reported')}>
+          <TouchableOpacity style={styles.deleteButton} onPress={() => deleteNotification(incident.id, 'reported')}> 
             <Ionicons
               name="trash-bin-outline"
               size={20}
@@ -893,7 +786,7 @@ Resolved By: ${incident.resolved_by}` : ''}`;
           styles.notificationItem,
           isNew ? styles.newCommunityAlertNotification : styles.viewedNotification
         ]}
-        onPress={() => markResidentLogAsViewed(log.ID)}
+        onPress={() => updateStoredIds(log.ID, 'resident', 'viewed')}
       >
         <View style={styles.notificationHeader}>
           <View style={styles.notificationIcon}>
@@ -914,7 +807,7 @@ Resolved By: ${incident.resolved_by}` : ''}`;
               {logDisplay.action}
             </Text>
           </View>
-          <TouchableOpacity style={styles.deleteButton} onPress={() => deleteNotification(log.ID, 'resident')}>
+          <TouchableOpacity style={styles.deleteButton} onPress={() => deleteNotification(log.ID, 'resident')}> 
             <Ionicons
               name="trash-bin-outline"
               size={20}
@@ -955,8 +848,8 @@ Resolved By: ${incident.resolved_by}` : ''}`;
   };
 
   // Separate logs into new and viewed
-  const newNotifications = logs.filter(log => !viewedNotifications.includes(log.ID) && !deletedNotifications.includes(log.ID));
-  const viewedNotificationsList = logs.filter(log => viewedNotifications.includes(log.ID) && !deletedNotifications.includes(log.ID));
+  const newNotifications = notifications.logs.filter(log => !viewedIds.log.includes(log.ID) && !deletedIds.log.includes(log.ID));
+  const viewedNotificationsList = notifications.logs.filter(log => viewedIds.log.includes(log.ID) && !deletedIds.log.includes(log.ID));
 
   // Helper function to format resident log display text
   const getResidentLogDisplayText = (log: LogEntry) => {
@@ -987,8 +880,8 @@ Resolved By: ${incident.resolved_by}` : ''}`;
   };
 
   // Separate patrol logs into new and viewed
-  const newPatrolLogs = patrolLogs.filter(log => !viewedPatrolLogs.includes(log.ID) && !deletedPatrolLogs.includes(log.ID));
-  const viewedPatrolLogsList = patrolLogs.filter(log => viewedPatrolLogs.includes(log.ID) && !deletedPatrolLogs.includes(log.ID));
+  const newPatrolLogs = notifications.patrolLogs.filter(log => !viewedIds.patrol.includes(log.ID) && !deletedIds.patrol.includes(log.ID));
+  const viewedPatrolLogsList = notifications.patrolLogs.filter(log => viewedIds.patrol.includes(log.ID) && !deletedIds.patrol.includes(log.ID));
 
   // Render notification item
   const renderNotificationItem = (log: LogEntry, isNew: boolean) => {
@@ -1001,7 +894,7 @@ Resolved By: ${incident.resolved_by}` : ''}`;
           styles.notificationItem,
           isNew ? styles.newNotification : styles.viewedNotification
         ]}
-        onPress={() => markAsViewed(log.ID)}
+        onPress={() => updateStoredIds(log.ID, 'log', 'viewed')}
       >
         <View style={styles.notificationHeader}>
           <View style={styles.notificationIcon}>
@@ -1024,7 +917,7 @@ Resolved By: ${incident.resolved_by}` : ''}`;
               </Text>
             )}
           </View>
-          <TouchableOpacity style={styles.deleteButton} onPress={() => deleteNotification(log.ID, 'log')}>
+          <TouchableOpacity style={styles.deleteButton} onPress={() => deleteNotification(log.ID, 'log')}> 
             <Ionicons
               name="trash-bin-outline"
               size={20}
@@ -1048,7 +941,7 @@ Resolved By: ${incident.resolved_by}` : ''}`;
           styles.notificationItem,
           isNew ? styles.newIncidentReportNotification : styles.viewedNotification
         ]}
-        onPress={() => markPatrolLogAsViewed(log.ID)}
+        onPress={() => updateStoredIds(log.ID, 'patrol', 'viewed')}
       >
         <View style={styles.notificationHeader}>
           <View style={styles.notificationIcon}>
@@ -1071,7 +964,7 @@ Resolved By: ${incident.resolved_by}` : ''}`;
               </Text>
             )}
           </View>
-          <TouchableOpacity style={styles.deleteButton} onPress={() => deleteNotification(log.ID, 'patrol')}>
+          <TouchableOpacity style={styles.deleteButton} onPress={() => deleteNotification(log.ID, 'patrol')}> 
             <Ionicons
               name="trash-bin-outline"
               size={20}
@@ -1103,13 +996,13 @@ Resolved By: ${incident.resolved_by}` : ''}`;
   }
 
   // Calculate totals
-  const totalNewNotifications = newNotifications.length +
+  const totalNew = newNotifications.length +
     assignedCategorized.newIncidents.length +
     reportedCategorized.newIncidents.length +
     newPatrolLogs.length +
     newResidentLogs.length;  
   
-  const totalViewedNotifications = viewedNotificationsList.length +
+  const totalViewed = viewedNotificationsList.length +
     assignedCategorized.viewedUnresolved.length +
     assignedCategorized.resolved.length +
     reportedCategorized.viewedUnresolved.length +
@@ -1150,11 +1043,11 @@ Resolved By: ${incident.resolved_by}` : ''}`;
         {/* Summary */}
         <View style={styles.summary}>
           <Text style={styles.summaryText}>
-            {totalNewNotifications} new {totalViewedNotifications} viewed
+            {totalNew} new {totalViewed} viewed
           </Text>
         </View>
 
-        {logs.length === 0 && assignedIncidents.length === 0 && reportedIncidents.length === 0 && patrolLogs.length === 0 && residentLogs.length === 0 ? (
+        {totalNew === 0 && totalViewed === 0 ? (
           <View style={styles.emptyContainer}>
             <Ionicons name="notifications-off-outline" size={64} color="#ccc" />
             <Text style={styles.emptyText}>No notifications yet</Text>
@@ -1215,10 +1108,10 @@ Resolved By: ${incident.resolved_by}` : ''}`;
             )}
 
             {/* Earlier Section */}
-            {totalViewedNotifications > 0 && (
+            {totalViewed > 0 && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>
-                  Earlier ({totalViewedNotifications})
+                  Earlier ({totalViewed})
                 </Text>
                 {/* Viewed community alerts */}
                 {viewedResidentLogsList.map(log => renderResidentLogItem(log, false))}

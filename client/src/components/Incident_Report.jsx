@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react";
 import ViewIncidentModal from "./Modals/ViewIncidentModal";
 import AssignTanodModal from "./Modals/Tanodmodal";
+import LocationModal from "./LocationModal"; // Import the new modal
 import ConfirmationModal from "./Modals/ConfirmationModal";
 import { BASE_URL } from "../config";
 import "./IncidentReport.css";
@@ -16,6 +17,8 @@ function IncidentReport() {
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [availableTanods, setAvailableTanods] = useState([]);
   const [selectedTanod, setSelectedTanod] = useState("");
+  const [showLocationModal, setShowLocationModal] = useState(false);
+  const [locationIncident, setLocationIncident] = useState(null);
   const [currentUser, setCurrentUser] = useState("");
 
   const getStatusColor = (status) => {
@@ -94,6 +97,11 @@ function IncidentReport() {
     setSelectedIncident(incident);
     fetchAvailableTanods();
     setShowAssignModal(true);
+  };
+
+  const handleLocationClick = (incident) => {
+    setLocationIncident(incident);
+    setShowLocationModal(true);
   };
 
   const handleDeleteClick = (incident) => {
@@ -279,7 +287,7 @@ function IncidentReport() {
                 <th>Incident</th>
                 <th>Type</th>
                 <th>Reported By</th>
-                <th>Location</th>
+                <th>Longhitude, Latitude</th>
                 <th>Status</th>
                 <th>Actions</th>
               </tr>
@@ -306,7 +314,15 @@ function IncidentReport() {
                       <span className="type-badge">{item.incident_type || "N/A"}</span>
                     </td>
                     <td>{item.reported_by || "Unknown"}</td>
-                    <td>{item.location || "Not specified"}</td>
+                    <td
+                      className="location-cell"
+                      onClick={() => handleLocationClick(item)}
+                      title="Click to view on map"
+                    >
+                      {item.latitude && item.longitude
+                        ? `${parseFloat(item.latitude).toFixed(4)}, ${parseFloat(item.longitude).toFixed(4)}`
+                        : item.location || "Not specified"}
+                    </td>
                     <td>
                       <span className={`status-badge ${getStatusColor(item.status)}`}>{item.status}</span>
                     </td>
@@ -377,6 +393,13 @@ function IncidentReport() {
         confirmStyle={{ backgroundColor: "#dc3545" }}
         showResolvedBy={false}
         dialogClassName="delete-confirmation-dialog"
+      />
+
+      {/* Location Modal */}
+      <LocationModal
+        show={showLocationModal}
+        onClose={() => setShowLocationModal(false)}
+        incident={locationIncident}
       />
     </div>
   );

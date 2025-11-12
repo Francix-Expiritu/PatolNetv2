@@ -3,7 +3,7 @@ import GISMapping from "./GISmapping";
 import CommunityHub from './CommunityHub';
 import { BASE_URL } from '../config';
 
-export default function AnnouncementPage() {
+export default function AnnouncementPage({ showEmergencyContacts = true, showCommunityHub = true }) {
   const [recentIncident, setRecentIncident] = useState(null);
   const [incidents, setIncidents] = useState([]);
 
@@ -151,45 +151,49 @@ export default function AnnouncementPage() {
               </div>
 
               {/* Emergency Contacts */}
-              <div style={styles.card}>
-                <div style={styles.cardHeader}>
-                  <h3 style={styles.cardTitle}>Emergency Contacts</h3>
+              {showEmergencyContacts && (
+                <div style={styles.card}>
+                  <div style={styles.cardHeader}>
+                    <h3 style={styles.cardTitle}>Emergency Contacts</h3>
+                  </div>
+                  <div style={styles.contactsContent}>
+                    <div style={styles.contactItem}>
+                      <div>
+                        <div style={styles.contactName}>Emergency Services</div>
+                        <div style={styles.contactNumber}>911</div>
+                      </div>
+                      <button style={styles.callButton}>Call</button>
+                    </div>
+                    <div style={styles.contactItem}>
+                      <div>
+                        <div style={styles.contactName}>Local Emergency</div>
+                        <div style={styles.contactNumber}>(02) 8888-0911</div>
+                      </div>
+                      <button style={styles.callButton}>Call</button>
+                    </div>
+                    <div style={styles.contactItem}>
+                      <div>
+                        <div style={styles.contactName}>Disaster Response</div>
+                        <div style={styles.contactNumber}>(02) 911-1406</div>
+                      </div>
+                      <button style={styles.callButton}>Call</button>
+                    </div>
+                  </div>
                 </div>
-                <div style={styles.contactsContent}>
-                  <div style={styles.contactItem}>
-                    <div>
-                      <div style={styles.contactName}>Emergency Services</div>
-                      <div style={styles.contactNumber}>911</div>
-                    </div>
-                    <button style={styles.callButton}>Call</button>
-                  </div>
-                  <div style={styles.contactItem}>
-                    <div>
-                      <div style={styles.contactName}>Local Emergency</div>
-                      <div style={styles.contactNumber}>(02) 8888-0911</div>
-                    </div>
-                    <button style={styles.callButton}>Call</button>
-                  </div>
-                  <div style={styles.contactItem}>
-                    <div>
-                      <div style={styles.contactName}>Disaster Response</div>
-                      <div style={styles.contactNumber}>(02) 911-1406</div>
-                    </div>
-                    <button style={styles.callButton}>Call</button>
-                  </div>
-                </div>
-              </div>
+              )}
             </div>
           </div>
         </div>
       </div>
 
       {/* Community Hub */}
-      <div style={styles.communityWrapper}>
-        <div style={styles.communityContainer}>
-          <CommunityHub formatDate={formatDate} />
+      {showCommunityHub && (
+        <div style={styles.communityWrapper}>
+          <div style={styles.communityContainer}>
+            <CommunityHub formatDate={formatDate} />
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

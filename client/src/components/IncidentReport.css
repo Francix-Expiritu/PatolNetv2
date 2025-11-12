@@ -163,3 +163,10 @@
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
   width: 400px;
 }
+.location-cell {
+
+  cursor: zoom-in;
+  color: #2563eb;
+  font-weight: 500;
+  text-decoration: underline;
+}

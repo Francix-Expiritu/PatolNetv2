@@ -261,6 +261,11 @@
   white-space: pre-wrap;
 }
 
+.modal-map-container .leaflet-container {
+  border-radius: 6px;
+  z-index: 1; /* Ensure map is interactive */
+}
+
 /* Modal Footer */
 .modal-footer {
   background: #f8fafc;

@@ -10,7 +10,7 @@ const User = () => {
   return (
     <div className="user-dashboard">
       <section className="dashboard-section">
-        <Announcements />
+        <Announcements showEmergencyContacts={true} showCommunityHub={true} />
       </section>
 
       <section className="dashboard-section app-instructions-section">

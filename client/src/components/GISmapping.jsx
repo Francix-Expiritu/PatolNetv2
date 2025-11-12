@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
-import L from 'leaflet';
-import { MapPin, RefreshCw, AlertTriangle, Activity, Shield, Flame, Car, Filter, BarChart3, Clock, User, Calendar, MapPinIcon } from 'lucide-react';
+import L, { ChevronDown } from 'leaflet';
+import { MapPin, RefreshCw, AlertTriangle, Activity, Shield, Flame, Car, Filter, BarChart3, Clock, User, Calendar, MapPinIcon, Plus, X, ChevronDownIcon, Smile } from 'lucide-react';
 import { BASE_URL } from '../config';
 
 // Fix for default markers in react-leaflet
@@ -13,39 +13,8 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-// Modern icons for incident types
-const getIncidentIcon = (type) => {
-  const icons = {
-    'Fire': '🔥',
-    'Accident': '🚗',
-    'Crime': '🚨',
-    'Emergency': '🚑',
-    'Drowing people': '🆘',
-    'Electrical Circuit': '⚡',
-    'Figthing person': '🥊',
-    'Other': '⚠️'
-  };
-  return icons[type] || icons['Other'];
-};
-
-const getIncidentColor = (incidentType) => {
-    const colors = {
-        'Fire': '#ff4444',
-        'Accident': '#ff8800',
-        'Crime': '#8800ff',
-        'Emergency': '#ff0088',
-        'Drowing people': '#00aaff',
-        'Electrical Circuit': '#ffee00',
-        'Figthing person': '#ff0000',
-        'Other': '#0088ff'
-    };
-    return colors[incidentType] || colors['Other'];
-};
-
 // Custom icons for different incident types with modern design
-const createCustomIcon = (incidentType) => {
-  const color = getIncidentColor(incidentType);
-  const icon = getIncidentIcon(incidentType);
+const createCustomIcon = (icon, color) => {
   
   return L.divIcon({
     html: `
@@ -70,6 +39,65 @@ const createCustomIcon = (incidentType) => {
   });
 };
 
+const emojiSuggestions = ['🌊', '🔥', '🚗', '🚨', '🚑', '⚡', '🥊', '⚠️', '❓', '🚧', '💨', '💥', '💧', '🌳', '🏠', '🏢', '🌉', '⛰️', '🚓', '🚲', '🚶', '📢', '⚙️', '🦠', '☢️'];
+
+const AddTypeModal = ({
+  styles,
+  closeAddTypeModal,
+  handleAddIncidentType,
+  newType,
+  handleNewTypeChange,
+  addTypeError
+}) => (
+  <div style={styles.modalBackdrop}>
+    <div style={styles.modalContent}>
+      <div style={styles.modalHeader}>
+        <h3 style={styles.modalTitle}>Add New Incident Type</h3>
+        <button onClick={closeAddTypeModal} style={styles.modalCloseBtn}>
+          <X size={20} />
+        </button>
+      </div>
+      <form onSubmit={handleAddIncidentType}>
+        <div style={styles.formGroup}>
+          <label style={styles.formLabel}>Type Name</label>
+          <input style={styles.modalInput} type="text" placeholder="e.g., Flood" value={newType.name} onChange={(e) => handleNewTypeChange('name', e.target.value)} required />
+        </div>
+        <div style={styles.formGroup}>
+          <label style={styles.formLabel}>Emoji Icon</label>
+          <div style={{ position: 'relative' }}>
+            <Smile size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', zIndex: 1 }} />
+            <select
+              style={{...styles.modalInput, paddingLeft: '40px', appearance: 'none', cursor: 'pointer'}}
+              value={newType.icon}
+              onChange={(e) => handleNewTypeChange('icon', e.target.value)}
+              required
+            >
+              <option value="" disabled>Select an icon</option>
+              {emojiSuggestions.map(emoji => (
+                <option key={emoji} value={emoji}>{emoji}</option>
+              ))}
+              <option value="custom">Enter Custom...</option>
+            </select>
+            <ChevronDownIcon size={20} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', pointerEvents: 'none' }} />
+          </div>
+        </div>
+        <div style={styles.formGroup}>
+          <label style={styles.formLabel}>Marker Color</label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <input style={styles.colorInput} type="color" value={newType.color} onChange={(e) => handleNewTypeChange('color', e.target.value)} />
+            <div style={styles.legendItem}>
+              <div style={{...styles.legendIcon, background: `linear-gradient(135deg, ${newType.color}, ${newType.color}dd)`}}>{newType.icon}</div>
+              <span style={{ fontWeight: '500', color: '#374151' }}>Preview</span>
+            </div>
+          </div>
+        </div>
+        {addTypeError && <p style={styles.modalError}>{addTypeError}</p>}
+        <div style={styles.modalFooter}><button type="button" style={{...styles.modalButton, ...styles.cancelButton}} onClick={closeAddTypeModal}>Cancel</button><button type="submit" style={{...styles.modalButton, ...styles.addButton}}>Add Type</button></div>
+      </form>
+    </div>
+  </div>
+);
+
 function GISMapping({ showOnlyMap }) {
   const [incidents, setIncidents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -78,9 +106,109 @@ function GISMapping({ showOnlyMap }) {
   const [selectedIncident, setSelectedIncident] = useState(null);
   const [filterType, setFilterType] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
+  const [showAddTypeModal, setShowAddTypeModal] = useState(false);
+  const [newType, setNewType] = useState({ name: '', icon: '❓', color: '#cccccc' });
+  const [addTypeError, setAddTypeError] = useState('');
+
+  const defaultIncidentTypes = {
+    'Fire': { icon: '🔥', color: '#ff4444' },
+    'Accident': { icon: '🚗', color: '#ff8800' },
+    'Crime': { icon: '🚨', color: '#8800ff' },
+    'Emergency': { icon: '🚑', color: '#ff0088' },
+    'Drowing people': { icon: '🆘', color: '#00aaff' },
+    'Electrical Circuit': { icon: '⚡', color: '#ffee00' },
+    'Fighting person': { icon: '🥊', color: '#ff0000' },
+    'Other': { icon: '⚠️', color: '#0088ff' }
+  };
+
+  const [incidentTypeConfig, setIncidentTypeConfig] = useState(defaultIncidentTypes);
+
+  const getIncidentConfig = (type) => {
+    return incidentTypeConfig[type] || incidentTypeConfig['Other'];
+  };
+
+  const handleAddIncidentType = (e) => {
+    e.preventDefault();
+    setAddTypeError('');
+    if (!newType.name || incidentTypeConfig[newType.name]) {
+      setAddTypeError("Incident type name must be unique and not empty.");
+      return;
+    }
+
+    (async () => {
+      try {
+        const response = await fetch(`${BASE_URL}/api/incident-types`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newType),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => null); // Gracefully handle non-JSON responses
+          const errorMessage = errorData?.message || `Failed to save. Server responded with status: ${response.status}`;
+          throw new Error(errorMessage);
+        }
+
+        const savedType = await response.json();
+        // Use the returned data from the server to update state
+        setIncidentTypeConfig(prev => ({ ...prev, [savedType.name]: { icon: savedType.icon, color: savedType.color } }));
+        
+        setShowAddTypeModal(false);
+        setNewType({ name: '', icon: '❓', color: '#cccccc' });
+
+      } catch (error) {
+        console.error("Error adding incident type:", error);
+        setAddTypeError(error.message || "An unexpected error occurred.");
+      }
+    })();
+  };
+
+  const handleNewTypeChange = (field, value) => {
+    if (addTypeError) setAddTypeError('');
+    setNewType(prev => ({ ...prev, [field]: value }));
+  };
+
+  const closeAddTypeModal = () => {
+    setShowAddTypeModal(false);
+    setNewType({ name: '', icon: '❓', color: '#cccccc' });
+    setAddTypeError('');
+  };
 
   useEffect(() => {
-    fetchIncidents();
+    const initialFetch = async () => {
+      try {
+        setLoading(true);
+        const [incidentsRes, typesRes] = await Promise.all([
+          fetch(`${BASE_URL}/api/incidents`),
+          fetch(`${BASE_URL}/api/incident-types`) // Fetch custom types
+        ]);
+
+        if (!incidentsRes.ok) throw new Error('Failed to fetch incidents');
+        
+        const incidentsData = await incidentsRes.json();
+        
+        // Merge default types with custom types from DB
+        if (typesRes.ok) {
+          const customTypesData = await typesRes.json();
+          const customTypesConfig = customTypesData.reduce((acc, type) => {
+            acc[type.name] = { icon: type.icon, color: type.color };
+            return acc;
+          }, {});
+          setIncidentTypeConfig({ ...defaultIncidentTypes, ...customTypesConfig });
+        }
+
+        // Process incidents after setting up types
+        processIncidents(incidentsData);
+
+      } catch (err) {
+        console.error('Error during initial fetch:', err);
+        setError('Failed to load initial data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initialFetch();
   }, []);
 
   const fetchIncidents = async () => {
@@ -93,31 +221,33 @@ function GISMapping({ showOnlyMap }) {
       }
       
       const data = await response.json();
-      
-      // Filter out incidents without valid coordinates
-      const validIncidents = data.filter(incident => 
-        incident.latitude && 
-        incident.longitude && 
-        !isNaN(parseFloat(incident.latitude)) && 
-        !isNaN(parseFloat(incident.longitude))
-      );
-      
-      setIncidents(validIncidents);
-      
-      // Set map center to the first incident location if available
-      if (validIncidents.length > 0) {
-        setMapCenter([
-          parseFloat(validIncidents[0].latitude),
-          parseFloat(validIncidents[0].longitude)
-        ]);
-      }
-      
+      processIncidents(data);
       setError(null);
     } catch (err) {
       console.error('Error fetching incidents:', err);
       setError('Failed to load incident data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const processIncidents = (data) => {
+    // Filter out incidents without valid coordinates
+    const validIncidents = data.filter(incident => 
+      incident.latitude && 
+      incident.longitude && 
+      !isNaN(parseFloat(incident.latitude)) && 
+      !isNaN(parseFloat(incident.longitude))
+    );
+    
+    setIncidents(validIncidents);
+    
+    // Set map center to the first incident location if available
+    if (validIncidents.length > 0 && mapCenter[0] === 14.565307024431522) { // Only set on initial load
+      setMapCenter([
+        parseFloat(validIncidents[0].latitude),
+        parseFloat(validIncidents[0].longitude)
+      ]);
     }
   };
 
@@ -150,7 +280,7 @@ function GISMapping({ showOnlyMap }) {
   });
 
   // Get unique incident types for filter
-  const incidentTypes = ['All', ...new Set(incidents.map(i => i.incident_type))];
+  const incidentTypes = ['All', ...Object.keys(incidentTypeConfig)];
 
   const styles = {
     container: {
@@ -394,7 +524,99 @@ function GISMapping({ showOnlyMap }) {
       fontSize: '0.75rem',
       fontWeight: '500',
       border: '1px solid'
+    },
+    modalBackdrop: {
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      width: '100%',
+      height: '100%',
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      zIndex: 1000,
+    },
+    modalContent: {
+      background: 'white',
+      padding: '2rem',
+      borderRadius: '16px',
+      boxShadow: '0 10px 40px rgba(0, 0, 0, 0.2)',
+      width: '400px',
+    },
+    colorInput: {
+      width: '100%',
+      height: '40px',
+      border: '1px solid #d1d5db',
+      borderRadius: '8px',
+      padding: '0.25rem',
+      cursor: 'pointer',
+      marginTop: '1rem',
     }
+    ,
+    modalHeader: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      borderBottom: '1px solid #e5e7eb',
+      paddingBottom: '1rem',
+      marginBottom: '1.5rem',
+    },
+    modalTitle: {
+      fontSize: '1.25rem',
+      fontWeight: '600',
+      color: '#1f2937',
+      margin: 0,
+    },
+    modalCloseBtn: {
+      background: 'transparent',
+      border: 'none',
+      cursor: 'pointer',
+      color: '#9ca3af',
+    },
+    formGroup: {
+      marginBottom: '1.5rem',
+    },
+    formLabel: {
+      display: 'block',
+      fontSize: '0.875rem',
+      fontWeight: '500',
+      color: '#374151',
+      marginBottom: '0.5rem',
+    },
+    modalInput: {
+      width: '100%',
+      padding: '0.75rem 1rem',
+      border: '1px solid #d1d5db',
+      borderRadius: '8px',
+      fontSize: '1rem',
+    },
+    modalError: {
+      color: '#ef4444',
+      background: '#fee2e2',
+      border: '1px solid #fca5a5',
+      padding: '0.75rem 1rem',
+      borderRadius: '8px',
+      fontSize: '0.875rem',
+      marginTop: '1rem',
+    },
+    modalFooter: {
+      display: 'flex',
+      justifyContent: 'flex-end',
+      gap: '1rem',
+      marginTop: '2rem',
+      paddingTop: '1rem',
+      borderTop: '1px solid #e5e7eb',
+    },
+    modalButton: {
+      padding: '0.75rem 1.5rem',
+      borderRadius: '8px',
+      border: 'none',
+      fontWeight: '600',
+      cursor: 'pointer',
+    },
+    cancelButton: { background: '#e5e7eb', color: '#374151' },
+    addButton: { background: '#2563eb', color: 'white' },
   };
 
   const popupStyles = `
@@ -443,6 +665,15 @@ function GISMapping({ showOnlyMap }) {
   return (
     <div style={styles.container}>
       <style>{popupStyles}</style>
+      {showAddTypeModal && <AddTypeModal 
+        styles={styles}
+        closeAddTypeModal={closeAddTypeModal}
+        handleAddIncidentType={handleAddIncidentType}
+        newType={newType}
+        handleNewTypeChange={handleNewTypeChange}
+        addTypeError={addTypeError}
+      />
+      }
       
       {/* Header */}
       {!showOnlyMap && (
@@ -522,7 +753,7 @@ function GISMapping({ showOnlyMap }) {
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span>{type !== 'All' ? getIncidentIcon(type) : '📊'}</span>
+                    <span>{type !== 'All' ? getIncidentConfig(type).icon : '📊'}</span>
                     <span>{type}</span>
                   </div>
                   <span style={{ 
@@ -544,19 +775,27 @@ function GISMapping({ showOnlyMap }) {
                 <MapPinIcon size={18} />
                 Legend
               </h3>
-              {['Fire', 'Accident', 'Crime', 'Emergency', 'Drowing people', 'Electrical Circuit', 'Figthing person', 'Other'].map(type => (
+              {Object.entries(incidentTypeConfig).map(([type, config]) => (
                 <div key={type} style={styles.legendItem}>
                   <div 
                     style={{
                       ...styles.legendIcon,
-                      background: `linear-gradient(135deg, ${getIncidentColor(type)}, ${getIncidentColor(type)}dd)`
+                      background: `linear-gradient(135deg, ${config.color}, ${config.color}dd)`
                     }}
                   >
-                    {getIncidentIcon(type)}
+                    {config.icon}
                   </div>
                   <span style={{ fontWeight: '500', color: '#374151' }}>{type}</span>
                 </div>
               ))}
+              <button 
+                onClick={() => setShowAddTypeModal(true)}
+                style={{...styles.filterBtn, ...styles.inactiveFilter, marginTop: '1rem'}}
+                onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.8)'}
+                onMouseOut={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.6)'}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Plus size={16} /> Add New Type</div><ChevronDownIcon size={20} />
+              </button>
             </div>
 
             {/* Stats Card */}
@@ -613,9 +852,9 @@ function GISMapping({ showOnlyMap }) {
             ...styles.legendIcon,
             width: '32px',
             height: '32px',
-            background: `linear-gradient(135deg, ${getIncidentColor(incident.incident_type)}, ${getIncidentColor(incident.incident_type)}dd)`
+            background: `linear-gradient(135deg, ${getIncidentConfig(incident.incident_type).color}, ${getIncidentConfig(incident.incident_type).color}dd)`
           }}>
-            {getIncidentIcon(incident.incident_type)}
+            {getIncidentConfig(incident.incident_type).icon}
           </div>
           <div>
             <div style={{ fontWeight: '600', color: '#1f2937', fontSize: '0.875rem' }}>
@@ -681,12 +920,12 @@ function GISMapping({ showOnlyMap }) {
                 <Marker
                   key={incident.id}
                   position={[parseFloat(incident.latitude), parseFloat(incident.longitude)]}
-                  icon={createCustomIcon(incident.incident_type)}
+                  icon={createCustomIcon(getIncidentConfig(incident.incident_type).icon, getIncidentConfig(incident.incident_type).color)}
                 >
                   <Popup>
                     <div className="incident-popup">
                       <h4>
-                        {getIncidentIcon(incident.incident_type)} {incident.incident_type}
+                        {getIncidentConfig(incident.incident_type).icon} {incident.incident_type}
                       </h4>
                       <div className="popup-details">
                         <p><strong>📍 Location:</strong> {incident.location}</p>

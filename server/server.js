@@ -1263,7 +1263,7 @@ app.post("/pre-register-verify-code", (req, res) => {
 
 // API endpoint to create a new schedule entry
 app.post("/api/schedules", (req, res) => {
-  const { user, time, location } = req.body; // Added location from destructuring
+  const { user, location, day, start_time, end_time, month } = req.body; // Updated for new fields
   
   if (!user) {
     return res.status(400).json({ success: false, message: "User is required" });
@@ -1285,29 +1285,27 @@ app.post("/api/schedules", (req, res) => {
     const userId = userResults[0].ID;
     const userImage = userResults[0].IMAGE;
     
-    // Check if this user already has a schedule entry using user_id
+    // Check if this user already has a schedule entry
     const checkExistsSQL = "SELECT ID FROM schedules WHERE user_id = ?";
     
     db.query(checkExistsSQL, [userId], (checkErr, checkResults) => {
       if (checkErr) {
         console.error("❌ SQL error checking schedule:", checkErr);
         return res.status(500).json({ success: false, message: "Database error" });
-      }
-      
-      if (checkResults.length > 0) {
-        return res.status(409).json({ success: false, message: "User already has a schedule entry" });
-      }
-      
-      // Insert the new schedule entry with user_id, and let ID auto-increment
-      const insertSQL = `
-        INSERT INTO schedules (user_id, USER, STATUS, TIME, LOCATION, IMAGE)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `;
-      
-      db.query(
-        insertSQL, 
-        [userId, user, 'Off Duty', time || getGMT8Time(), location || null, userImage], // Default status to 'Off Duty'
-        (insertErr, result) => {
+      } else if (checkResults.length > 0) {
+        // A schedule already exists for this user.
+        return res.status(409).json({ success: false, message: "User already has a schedule entry. Please edit the existing one." });
+      } else {
+        // No schedule exists, so insert a new one.
+        const insertSQL = `
+          INSERT INTO schedules (user_id, USER, STATUS, LOCATION, DAY, START_TIME, END_TIME, IMAGE, MONTH)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `;
+        
+        db.query(
+          insertSQL, 
+          [userId, user, 'Off Duty', location || null, day, start_time, end_time, userImage, month || 'All'], // Default status to 'Off Duty'
+          (insertErr, result) => {
           if (insertErr) {
             console.error("❌ SQL insert error:", insertErr);
             return res.status(500).json({ success: false, message: "Failed to insert schedule entry" });
@@ -1318,8 +1316,9 @@ app.post("/api/schedules", (req, res) => {
             message: "Schedule entry created successfully",
             id: result.insertId
           });
-        }
-      );
+          }
+        );
+      }
     });
   });
 });
@@ -1517,7 +1516,7 @@ app.get("/api/logs_patrol/:user", (req, res) => {
 // Schedule update endpoint
 app.put("/api/schedules/:id", (req, res) => {
   const scheduleId = req.params.id;
-  const { status, time, location } = req.body;
+  const { status, location, day, start_time, end_time, month } = req.body;
   
   if (!scheduleId) {
     return res.status(400).json({ success: false, message: "Schedule ID is required" });
@@ -1535,14 +1534,29 @@ app.put("/api/schedules/:id", (req, res) => {
     params.push(status);
   }
   
-  if (time !== undefined) {
-    updates.push(" TIME = ?");
-    params.push(time);
-  }
-
   if (location !== undefined) {
     updates.push(" LOCATION = ?");
     params.push(location);
+  }
+
+  if (day !== undefined) {
+    updates.push(" DAY = ?");
+    params.push(day);
+  }
+
+  if (start_time !== undefined) {
+    updates.push(" START_TIME = ?");
+    params.push(start_time);
+  }
+
+  if (end_time !== undefined) {
+    updates.push(" END_TIME = ?");
+    params.push(end_time);
+  }
+
+  if (month !== undefined) {
+    updates.push(" MONTH = ?");
+    params.push(month);
   }
   
   if (updates.length === 0) {
@@ -1562,35 +1576,6 @@ app.put("/api/schedules/:id", (req, res) => {
     
     if (result.affectedRows === 0) {
       return res.status(404).json({ success: false, message: "Schedule entry not found" });
-    }
-    
-    // If time is being updated, also save to logs table with the SELECTED time (not current time)
-    if (time !== undefined) {
-      // First, get the USER from the schedules table using scheduleId
-      const getUserFromScheduleSql = "SELECT USER FROM schedules WHERE ID = ?";
-      db.query(getUserFromScheduleSql, [scheduleId], (getUserErr, userResult) => {
-        if (getUserErr) {
-          console.error("❌ Error fetching user for log entry:", getUserErr);
-          return; // Don't fail the main update, just skip logging
-        }
-        if (userResult.length === 0) {
-          console.warn("User not found in schedules for logging schedule update.");
-          return;
-        }
-        const userForLog = userResult[0].USER;
-
-        const logSql = `
-          INSERT INTO logs (USER, TIME, LOCATION, ACTION)
-          VALUES (?, ?, ?, 'NEW SCHEDULE')
-        `;
-
-        db.query(logSql, [userForLog, time, location || 'Not specified'], (logErr) => {
-          if (logErr) {
-            console.error("❌ Error saving to logs:", logErr);
-            // Don't fail the main update, just log the error
-          }
-        });
-      });
     }
     
     res.json({ 
@@ -1668,7 +1653,7 @@ app.delete("/api/schedules/:id", (req, res) => {
 
 // API endpoint to fetch all schedules with IMAGE included
 app.get("/api/schedules", (req, res) => {
-  const sql = "SELECT ID, user_id, USER, STATUS, LOCATION, TIME, IMAGE FROM schedules"; // Explicitly select columns
+  const sql = "SELECT ID, user_id, USER, STATUS, LOCATION, TIME, IMAGE, DAY, START_TIME, END_TIME, MONTH FROM schedules"; // Explicitly select columns
   db.query(sql, (err, results) => {
     if (err) {
       console.error("❌ SQL error:", err);
@@ -1692,12 +1677,29 @@ app.get("/api/user-time-status/:username", async (req, res) => {
     const today = currentTime.slice(0, 10); // Get date part (YYYY-MM-DD)
     // Get user's schedule information
     const schedule = await new Promise((resolve, reject) => {
-      const sql = "SELECT ID, user_id, USER, STATUS, LOCATION, TIME, IMAGE FROM schedules WHERE USER = ?"; // Explicitly select columns
+      const sql = "SELECT ID, user_id, USER, STATUS, LOCATION, IMAGE, DAY, START_TIME, END_TIME, MONTH FROM schedules WHERE USER = ?"; // Removed TIME column
       db.query(sql, [username], (err, results) => {
         if (err) reject(err);
         else resolve(results[0]);
       });
     });
+
+    // Helper function to check if there is a valid schedule for today
+    const hasValidScheduleToday = (schedule) => {
+      if (!schedule || !schedule.DAY || !schedule.START_TIME || !schedule.END_TIME || !schedule.MONTH) {
+        return false;
+      }
+      const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+      const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+      const now = new Date();
+      const todayDayName = dayNames[now.getDay()];
+      const currentMonthName = monthNames[now.getMonth()];
+      
+      const isMonthMatch = schedule.MONTH === 'All' || schedule.MONTH.toLowerCase() === currentMonthName.toLowerCase();
+      const isDayMatch = schedule.DAY.toLowerCase() === todayDayName.toLowerCase();
+
+      return isDayMatch && isMonthMatch;
+    };
 
     if (!schedule) {
       // If no schedule is found, return a default status (e.g., "Off Duty")
@@ -1737,11 +1739,12 @@ app.get("/api/user-time-status/:username", async (req, res) => {
       }
     }
 
-    // Use logs TIME instead of schedule TIME for scheduledTime
-    let formattedScheduledTime = null;
-    if (todayLog && todayLog.TIME) {
-      // Use the TIME from logs table instead of schedules table
-      formattedScheduledTime = todayLog.TIME;
+    // Format the schedule time for display
+    let formattedScheduleDisplay = "No schedule assigned";
+    if (schedule && schedule.DAY && schedule.START_TIME && schedule.END_TIME) {
+      // Simple time formatting for display
+      const formatTime = (timeStr) => new Date(`1970-01-01T${timeStr}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+      formattedScheduleDisplay = `${schedule.DAY}, ${formatTime(schedule.START_TIME)} - ${formatTime(schedule.END_TIME)}`;
     }
 
     res.json({
@@ -1749,9 +1752,10 @@ app.get("/api/user-time-status/:username", async (req, res) => {
       schedule: {
         id: schedule.ID,
         user: schedule.USER,
-        status: calculatedStatus, // Hardcoded status based on logs
+        status: calculatedStatus,
         location: schedule.LOCATION || null,
-        scheduledTime: formattedScheduledTime // Using logs TIME instead of schedules TIME
+        // NEW: Send formatted schedule string
+        scheduledTime: formattedScheduleDisplay
       },
       logs: {
         timeIn: todayLog?.TIME_IN ? {
@@ -1768,7 +1772,7 @@ app.get("/api/user-time-status/:username", async (req, res) => {
       currentTime: currentTime,
       hasTimeInToday: !!todayLog?.TIME_IN,
       hasTimeOutToday: !!todayLog?.TIME_OUT,
-      hasValidTime: !!schedule.TIME, // Check if schedule has valid time
+      hasValidTime: hasValidScheduleToday(schedule), // Check if schedule is valid for today
       mostRecentLogTime: todayLog?.TIME_OUT || todayLog?.TIME_IN || null, // From logs
       calculatedStatus: calculatedStatus // Hardcoded based on TIME_IN/TIME_OUT
     });
@@ -1799,15 +1803,30 @@ app.post("/api/time-record", async (req, res) => {
   if (action === 'TIME-IN') {
     try {
       const schedule = await new Promise((resolve, reject) => {
-        const sql = "SELECT TIME FROM schedules WHERE USER = ?";
+        const sql = "SELECT DAY, START_TIME, END_TIME, MONTH FROM schedules WHERE USER = ?";
         db.query(sql, [user], (err, results) => {
           if (err) reject(err);
           else resolve(results[0]);
         });
       });
 
-      if (!schedule || !schedule.TIME || schedule.TIME.trim() === '') {
+      if (!schedule || !schedule.DAY || !schedule.START_TIME || !schedule.END_TIME) {
         return res.status(400).json({ 
+          success: false, 
+          message: "Cannot time in without a valid schedule. Please contact your administrator." 
+        });
+      }
+      const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+      const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+      const now = new Date();
+      const todayDayName = dayNames[now.getDay()];
+      const currentMonthName = monthNames[now.getMonth()];
+
+      const isMonthMatch = schedule.MONTH === 'All' || schedule.MONTH.toLowerCase() === currentMonthName.toLowerCase();
+      const isDayMatch = schedule.DAY.toLowerCase() === todayDayName.toLowerCase();
+
+      if (!isDayMatch || !isMonthMatch) {
+        return res.status(400).json({
           success: false, 
           message: "Cannot time in without a valid schedule. Please contact your administrator." 
         });

@@ -9,7 +9,7 @@ const ScheduleAssignment = () => {
   const [personnel, setPersonnel] = useState([]);
   const [selectedPerson, setSelectedPerson] = useState(null);
   const [showModal, setShowModal] = useState(false);
-  const [formData, setFormData] = useState({ status: '', location: '', time: '' });
+  const [formData, setFormData] = useState({ status: '', location: '', day: '', start_time: '', end_time: '', month: 'All' });
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -102,6 +102,10 @@ const ScheduleAssignment = () => {
               SCHEDULE_ID: personSchedule?.ID || null,
               SCHEDULE_TIME: personSchedule?.TIME || null,
               SCHEDULE_LOCATION: personSchedule?.LOCATION || null,
+              DAY: personSchedule?.DAY || null,
+              START_TIME: personSchedule?.START_TIME || null,
+              MONTH: personSchedule?.MONTH || 'All',
+              END_TIME: personSchedule?.END_TIME || null,
               CALCULATED_STATUS: calculatedStatus,
               LOG_TIME: logData?.time || null,
               LOG_LOCATION: logData?.location || null // Add log location
@@ -140,7 +144,10 @@ const ScheduleAssignment = () => {
     setFormData({
       status: person.CALCULATED_STATUS || '',
       location: person.SCHEDULE_LOCATION || '',
-      time: person.SCHEDULE_TIME || ''
+      day: person.DAY || '',
+      start_time: person.START_TIME || '',
+      end_time: person.END_TIME || '',
+      month: person.MONTH || 'All'
     });
     setShowModal(true);
   };
@@ -157,14 +164,20 @@ const ScheduleAssignment = () => {
         // Update existing schedule
         response = await axios.put(`${BASE_URL}/api/schedules/${selectedPerson.SCHEDULE_ID}`, {
           location: formData.location,
-          time: formData.time
+          day: formData.day,
+          start_time: formData.start_time,
+          end_time: formData.end_time,
+          month: formData.month
         });
       } else {
         // Create new schedule
         response = await axios.post(`${BASE_URL}/api/schedules`, {
           user: selectedPerson.USER,
           location: formData.location,
-          time: formData.time
+          day: formData.day,
+          start_time: formData.start_time,
+          end_time: formData.end_time,
+          month: formData.month
         });
       }
 
@@ -190,10 +203,17 @@ const ScheduleAssignment = () => {
   );
 
   // Helper function to format datetime for display
-  const formatDateTime = (dateTimeString) => {
-    if (!dateTimeString) return "Not set";
+  const formatScheduleTime = (day, startTime, endTime, month) => {
+    if (!day || !startTime || !endTime) return "Not set";
+    
     try {
-      return new Date(dateTimeString).toLocaleString();
+      const formatTime = (timeStr) => new Date(`1970-01-01T${timeStr}`).toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: 'numeric',
+        hour12: true
+      });
+      const monthDisplay = month && month !== 'All' ? `${month} - ` : '';
+      return `${monthDisplay}${day}, ${formatTime(startTime)} - ${formatTime(endTime)}`;
     } catch (error) {
       return "Invalid date";
     }
@@ -308,9 +328,7 @@ const ScheduleAssignment = () => {
                       <td>
                         {person.SCHEDULE_LOCATION || "Not assigned"}
                       </td>
-                      <td>
-                        {formatDateTime(person.SCHEDULE_TIME) || "Not scheduled"}
-                      </td>
+                      <td>{formatScheduleTime(person.DAY, person.START_TIME, person.END_TIME, person.MONTH)}</td>
                       <td className="actions-cell">
                         <button
                           onClick={() => handleClick(person)}
