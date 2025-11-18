@@ -11,6 +11,9 @@ const AdminSidebar = ({ currentUser, onLogout }) => {
   const [newIncidentCount, setNewIncidentCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isAlertPlaying, setIsAlertPlaying] = useState(false);
+  const alertAudioRef = useRef({ context: null, oscillator: null, gain: null });
+  const audioContextRef = useRef(null);
   const location = useLocation();
 
   // Alert system state and refs
@@ -113,67 +116,133 @@ const AdminSidebar = ({ currentUser, onLogout }) => {
     ];
   }, []);
 
+  const stopAlertSound = () => {
+    if (alertAudioRef.current.oscillator) {
+      try {
+        // Stop all oscillators if they exist
+        if (alertAudioRef.current.oscillators) {
+          alertAudioRef.current.oscillators.forEach(osc => {
+            try {
+              osc.stop();
+              osc.disconnect();
+            } catch (e) {
+              console.warn('Error stopping oscillator:', e);
+            }
+          });
+        } else {
+          alertAudioRef.current.oscillator.stop();
+          alertAudioRef.current.oscillator.disconnect();
+        }
+        
+        // Disconnect all gains
+        if (alertAudioRef.current.gains) {
+          alertAudioRef.current.gains.forEach(g => {
+            try {
+              g.disconnect();
+            } catch (e) {
+              console.warn('Error disconnecting gain:', e);
+            }
+          });
+        }
+        
+        alertAudioRef.current.gain.disconnect();
+        
+        alertAudioRef.current = { context: null, oscillator: null, gain: null };
+        setIsAlertPlaying(false);
+        console.log('✅ EMERGENCY ALERT ACKNOWLEDGED - ALARM STOPPED ✅');
+      } catch (error) {
+        console.warn('Error stopping alert:', error);
+        setIsAlertPlaying(false);
+      }
+    }
+  };
+
   // Emergency alert sound function
   const playAlertSound = async () => {
+    if (isAlertPlaying) {
+      console.log('Alert already playing, skipping...');
+      return;
+    }
+
+    // Do not proceed if the audio context hasn't been initialized by a user gesture.
+    if (!audioContextRef.current) {
+      console.warn('Audio not yet enabled by user gesture. Cannot play alert.');
+      return;
+    }
+
     try {
-      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      console.log('🚨 Starting emergency alert sound...');
+      setIsAlertPlaying(true);
+      
+      const context = audioContextRef.current;
+      // Attempt to resume the context if it's suspended. This is crucial.
+      if (context.state === 'suspended') await context.resume();
+      
+      console.log('Audio context state:', context.state);
+      
+      // Create a single oscillator for a classic siren sound
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
 
-      const createUrgentBeep = (frequency, startTime, duration, volume = 0.5) => {
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
+      oscillator.connect(gain);
+      gain.connect(context.destination);
 
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-
-        oscillator.frequency.setValueAtTime(frequency, startTime);
-        oscillator.type = 'square';
-
-        gainNode.gain.setValueAtTime(0, startTime);
-        gainNode.gain.linearRampToValueAtTime(volume, startTime + 0.01);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
-
-        oscillator.start(startTime);
-        oscillator.stop(startTime + duration);
+      alertAudioRef.current = { 
+        context, 
+        oscillator: oscillator, 
+        gain: gain,
+        oscillators: [oscillator], // Keep as array for stop function compatibility
+        gains: [gain]
       };
 
-      const now = audioContext.currentTime;
+      oscillator.type = 'sine';
+      gain.gain.value = 0.5;
 
-      createUrgentBeep(1200, now, 0.1);
-      createUrgentBeep(1200, now + 0.15, 0.1);
-      createUrgentBeep(1200, now + 0.3, 0.1);
-      createUrgentBeep(700, now + 0.6, 0.3);
-      createUrgentBeep(1200, now + 1.0, 0.1);
-      createUrgentBeep(1200, now + 1.15, 0.1);
-      createUrgentBeep(1200, now + 1.3, 0.1);
+      const createSiren = () => {
+        const now = context.currentTime;
+        const highPitch = 1000;
+        const lowPitch = 400;
+        const cycleDuration = 1.0;
+        for (let i = 0; i < 300; i++) {
+          const cycleStartTime = now + i * cycleDuration;
+          oscillator.frequency.setValueAtTime(lowPitch, cycleStartTime);
+          oscillator.frequency.linearRampToValueAtTime(highPitch, cycleStartTime + cycleDuration / 2);
+          oscillator.frequency.linearRampToValueAtTime(lowPitch, cycleStartTime + cycleDuration);
+        }
+      };
 
-      console.log('🚨 EMERGENCY INCIDENT ALERT PLAYED 🚨');
+      oscillator.start();
+      createSiren();
 
+      // Keep audio playing even in background tabs - FORCE RESUME
+      const visibilityListener = () => {
+        if (alertAudioRef.current.context?.state === 'suspended') {
+          alertAudioRef.current.context.resume();
+          console.log('🚨 RESUMING EMERGENCY ALERT SOUND 🚨');
+        }
+      };
+      document.addEventListener('visibilitychange', visibilityListener);
+
+      // Periodically check and resume if suspended (every 2 seconds)
+      const resumeInterval = setInterval(() => {
+        if (alertAudioRef.current.context?.state === 'suspended') {
+          alertAudioRef.current.context.resume();
+        }
+      }, 2000);
+
+      console.log('🚨🚨🚨 EMERGENCY SIREN ALERT ACTIVATED 🚨🚨🚨');
       if ('Notification' in window && Notification.permission === 'granted') {
         new Notification('🚨 NEW INCIDENT ALERT', {
           body: 'Emergency: New incident report requires immediate attention!',
           icon: '🚨',
           tag: 'emergency-incident',
           requireInteraction: true,
-          timestamp: Date.now()
+          vibrate: [200, 100, 200, 100, 200, 100, 200]
         });
       }
-
     } catch (error) {
       console.warn('Could not play emergency alert:', error);
-
-      if ('Notification' in window && Notification.permission === 'granted') {
-        new Notification('🚨 NEW INCIDENT ALERT', {
-          body: 'New incident report requires attention (audio failed)',
-          icon: '🚨',
-          tag: 'emergency-incident'
-        });
-      }
-
-      const originalTitle = document.title;
-      document.title = originalTitle;
-      setTimeout(() => {
-        document.title = originalTitle;
-      }, 5000);
+      setIsAlertPlaying(false);
     }
   };
 
@@ -183,6 +252,21 @@ const AdminSidebar = ({ currentUser, onLogout }) => {
       Notification.requestPermission();
     }
 
+    const initAudio = () => {
+      if (!audioContextRef.current) {
+        const context = new (window.AudioContext || window.webkitAudioContext)();
+        audioContextRef.current = context;
+        if (context.state === 'suspended') {
+          context.resume().then(() => console.log('✅ Audio enabled - ready for alerts'));
+        } else {
+          console.log('✅ Audio enabled - ready for alerts');
+        }
+      }
+    };
+
+    const events = ['click', 'touchstart', 'keydown', 'mousedown'];
+    events.forEach(event => document.addEventListener(event, initAudio, { once: true }));
+
     const monitorIncidents = () => {
       fetch(`${BASE_URL}/api/incidents`)
         .then(res => res.json())
@@ -191,10 +275,10 @@ const AdminSidebar = ({ currentUser, onLogout }) => {
 
           if (!isInitialLoadRef.current && currentCount > previousIncidentsCountRef.current) {
             const newIncidentsCount = currentCount - previousIncidentsCountRef.current;
-            console.log(`${newIncidentsCount} new incident(s) detected!`);
+            console.log(`🚨 ${newIncidentsCount} new incident(s) detected!`);
 
             setNewIncidentCount(prev => prev + newIncidentsCount);
-            playAlertSound();
+            playAlertSound().catch(err => console.error("Error trying to play sound:", err));
           }
 
           previousIncidentsCountRef.current = currentCount;
@@ -210,19 +294,23 @@ const AdminSidebar = ({ currentUser, onLogout }) => {
 
     monitorIncidents();
     const intervalId = setInterval(monitorIncidents, 3000);
-    return () => clearInterval(intervalId);
+    return () => {
+      events.forEach(event => document.removeEventListener(event, initAudio));
+      clearInterval(intervalId);
+    };
   }, []);
 
   // Clear notification count when visiting incident report page
   useEffect(() => {
     if (location.pathname === '/incident-report' && newIncidentCount > 0) {
+      stopAlertSound();
       const timeoutId = setTimeout(() => {
         setNewIncidentCount(0);
       }, 1000);
 
       return () => clearTimeout(timeoutId);
     }
-  }, [location.pathname, newIncidentCount]);
+  }, [location.pathname]);
 
   // Fetch user profile data
   const fetchUserProfile = async () => {
@@ -278,6 +366,7 @@ const AdminSidebar = ({ currentUser, onLogout }) => {
 
   const handleLogout = () => {
     setShowProfileDropdown(false);
+    stopAlertSound();
     setIsLoading(true);
 
     if (onLogout) {
@@ -424,7 +513,9 @@ const AdminSidebar = ({ currentUser, onLogout }) => {
                   Profile
                 </button>
                 <button onClick={handleLogout} className="dropdown-item logout">
-
+                  <svg className="dropdown-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
                   Logout
                 </button>
               </div>

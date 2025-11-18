@@ -32,7 +32,7 @@ const Avatar = ({ imageName, userName }) => {
   );
 };
 
-const EditScheduleModal = ({ isOpen, onClose, selectedPerson, formData, onFormChange, onSave }) => {
+const EditScheduleModal = ({ isOpen, onClose, selectedPerson, formData, onFormChange, onSave, onClear }) => {
   const [isClosing, setIsClosing] = useState(false);
 
   useEffect(() => {
@@ -57,6 +57,8 @@ const EditScheduleModal = ({ isOpen, onClose, selectedPerson, formData, onFormCh
   };
 
   if (!isOpen || !selectedPerson) return null;
+
+  const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
   return (
     <>
@@ -119,21 +121,25 @@ const EditScheduleModal = ({ isOpen, onClose, selectedPerson, formData, onFormCh
                   <option value="December">December</option>
                 </select>
               </div>
-
+              <div className="edit-schedule-form-group-row"></div>
               <div className="edit-schedule-form-group">
                 <label htmlFor="day" className="edit-schedule-label">
                   <Calendar size={14} /> Day of the Week
                 </label>
-                <select name="day" id="day" className="edit-schedule-input" value={formData.day} onChange={onFormChange}>
-                  <option value="">Select a day</option>
-                  <option value="Monday">Monday</option>
-                  <option value="Tuesday">Tuesday</option>
-                  <option value="Wednesday">Wednesday</option>
-                  <option value="Thursday">Thursday</option>
-                  <option value="Friday">Friday</option>
-                  <option value="Saturday">Saturday</option>
-                  <option value="Sunday">Sunday</option>
-                </select>
+                <div className="day-checkbox-group">
+                  {daysOfWeek.map(day => (
+                    <label key={day} className="day-checkbox-label">
+                      <input
+                        type="checkbox"
+                        name="day"
+                        value={day} // This value is what onFormChange will receive
+                        checked={formData.day && formData.day.includes(day)}
+                        onChange={onFormChange}
+                      />
+                      <span className="day-checkbox-text">{day.substring(0, 3)}</span>
+                    </label>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -154,6 +160,9 @@ const EditScheduleModal = ({ isOpen, onClose, selectedPerson, formData, onFormCh
           </div>
 
           <div className="edit-schedule-modal-footer">
+            <button type="button" className="edit-schedule-btn edit-schedule-delete-btn" onClick={onClear}>
+              <Trash2 size={16} /> Clear Schedule
+            </button>
             <button type="button" className="edit-schedule-btn edit-schedule-cancel-btn" onClick={handleClose}>
               Cancel
             </button>
@@ -180,6 +189,41 @@ const EditScheduleModal = ({ isOpen, onClose, selectedPerson, formData, onFormCh
           opacity: 0;
         }
         .edit-schedule-modal-content {
+          /* Styles for the day checkbox group */
+          .day-checkbox-group {
+            display: flex;
+            justify-content: space-between;
+            background-color: white;
+            padding: 8px;
+            border-radius: 8px;
+            border: 1px solid #d1d5db;
+          }
+          .day-checkbox-label {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+          }
+          .day-checkbox-label input[type="checkbox"] {
+            display: none;
+          }
+          .day-checkbox-text {
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #374151;
+            transition: all 0.2s ease;
+            border: 1px solid transparent;
+          }
+          .day-checkbox-label input[type="checkbox"]:checked + .day-checkbox-text {
+            background-color: #eff6ff;
+            color: #2563eb;
+            border-color: #93c5fd;
+          }
+          .day-checkbox-label:hover .day-checkbox-text {
+            background-color: #f9fafb;
+          }
           background: white;
           border-radius: 16px;
           box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
@@ -329,6 +373,14 @@ const EditScheduleModal = ({ isOpen, onClose, selectedPerson, formData, onFormCh
         }
         .edit-schedule-save-btn:hover {
           background-color: #1d4ed8;
+        }
+        .edit-schedule-delete-btn {
+          background-color: #fee2e2;
+          color: #b91c1c;
+          margin-right: auto;
+        }
+        .edit-schedule-delete-btn:hover {
+          background-color: #fecaca;
         }
       `}</style>
     </>

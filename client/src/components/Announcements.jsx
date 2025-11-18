@@ -6,6 +6,11 @@ import { BASE_URL } from '../config';
 export default function AnnouncementPage({ showEmergencyContacts = true, showCommunityHub = true }) {
   const [recentIncident, setRecentIncident] = useState(null);
   const [incidents, setIncidents] = useState([]);
+  const [selectedStat, setSelectedStat] = useState(null);
+  const [expandedContact, setExpandedContact] = useState(null);
+  const [hoveredIncidentType, setHoveredIncidentType] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [notification, setNotification] = useState(null);
 
   useEffect(() => {
     const fetchIncidents = async () => {
@@ -15,7 +20,14 @@ export default function AnnouncementPage({ showEmergencyContacts = true, showCom
           throw new Error(`HTTP error! status: ${response.status}`);
         }
         const data = await response.json();
+        const prevCount = incidents.length;
         setIncidents(data);
+        
+        if (data.length > prevCount && prevCount > 0) {
+          setNotification('New incident reported!');
+          setTimeout(() => setNotification(null), 3000);
+        }
+        
         if (data.length > 0) {
           const sortedIncidents = data.sort((a, b) => new Date(b.datetime) - new Date(a.datetime));
           setRecentIncident(sortedIncidents[0]);
@@ -26,7 +38,29 @@ export default function AnnouncementPage({ showEmergencyContacts = true, showCom
     };
 
     fetchIncidents();
-  }, []);
+    
+    // Auto-refresh every 30 seconds
+    const interval = setInterval(fetchIncidents, 30000);
+    return () => clearInterval(interval);
+  }, [incidents.length]);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      const response = await fetch(`${BASE_URL}/api/incidents`);
+      if (response.ok) {
+        const data = await response.json();
+        setIncidents(data);
+        if (data.length > 0) {
+          const sortedIncidents = data.sort((a, b) => new Date(b.datetime) - new Date(a.datetime));
+          setRecentIncident(sortedIncidents[0]);
+        }
+      }
+    } catch (error) {
+      console.error("Error refreshing:", error);
+    }
+    setTimeout(() => setRefreshing(false), 500);
+  };
 
   const formatDate = (dateString) => {
     const options = { 
@@ -55,10 +89,26 @@ export default function AnnouncementPage({ showEmergencyContacts = true, showCom
     return { level: 'Low', color: '#10b981' };
   };
 
+  const handleCall = (number) => {
+    window.location.href = `tel:${number}`;
+  };
+
   const riskLevel = getRiskLevel();
+  const incidentTypes = getIncidentsByType();
+  const maxCount = Math.max(...Object.values(incidentTypes), 1);
 
   return (
     <div style={styles.page}>
+      {/* Notification Toast */}
+      {notification && (
+        <div style={{
+          ...styles.notification,
+          animation: 'slideInDown 0.3s ease-out',
+        }}>
+          🔔 {notification}
+        </div>
+      )}
+
       {/* Header */}
       <div style={styles.header}>
         <div style={styles.container}>
@@ -76,22 +126,66 @@ export default function AnnouncementPage({ showEmergencyContacts = true, showCom
               <div style={styles.card}>
                 <div style={styles.cardHeader}>
                   <h2 style={styles.cardTitle}>Live Incident Map</h2>
-                  <div style={styles.liveIndicator}>
-                    <div style={styles.liveDot}></div>
-                    <span style={styles.liveText}>Live</span>
+                  <div style={styles.headerActions}>
+                    <button 
+                      onClick={handleRefresh}
+                      style={{
+                        ...styles.refreshButton,
+                        transform: refreshing ? 'rotate(360deg)' : 'rotate(0deg)',
+                      }}
+                      disabled={refreshing}
+                      onMouseEnter={(e) => !refreshing && (e.currentTarget.style.backgroundColor = '#f3f4f6')}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                    >
+                      ↻
+                    </button>
+                    <div style={styles.liveIndicator}>
+                      <div style={styles.liveDot}></div>
+                      <span style={styles.liveText}>Live</span>
+                    </div>
                   </div>
                 </div>
                 <div style={styles.mapContainer}>
                   <GISMapping showOnlyMap={true} />
                 </div>
                 <div style={styles.mapStats}>
-                  <div style={styles.statItem}>
-                    <span style={styles.statNumber}>{incidents.length}</span>
+                  <div 
+                    style={{
+                      ...styles.statItem,
+                      transform: selectedStat === 'total' ? 'scale(1.05)' : 'scale(1)',
+                      cursor: 'pointer',
+                      padding: '12px',
+                      borderRadius: '8px',
+                      transition: 'all 0.3s ease',
+                    }}
+                    onClick={() => setSelectedStat(selectedStat === 'total' ? null : 'total')}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                  >
+                    <span style={{
+                      ...styles.statNumber,
+                      color: selectedStat === 'total' ? '#2563eb' : '#111827',
+                    }}>{incidents.length}</span>
                     <span style={styles.statLabel}>Total Incidents</span>
                   </div>
                   <div style={styles.statDivider}></div>
-                  <div style={styles.statItem}>
-                    <span style={styles.statNumber}>{incidents.filter(i => i.status === 'active').length}</span>
+                  <div 
+                    style={{
+                      ...styles.statItem,
+                      transform: selectedStat === 'active' ? 'scale(1.05)' : 'scale(1)',
+                      cursor: 'pointer',
+                      padding: '12px',
+                      borderRadius: '8px',
+                      transition: 'all 0.3s ease',
+                    }}
+                    onClick={() => setSelectedStat(selectedStat === 'active' ? null : 'active')}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f3f4f6'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                  >
+                    <span style={{
+                      ...styles.statNumber,
+                      color: selectedStat === 'active' ? '#ef4444' : '#111827',
+                    }}>{incidents.filter(i => i.status === 'active').length}</span>
                     <span style={styles.statLabel}>Active</span>
                   </div>
                 </div>
@@ -101,12 +195,28 @@ export default function AnnouncementPage({ showEmergencyContacts = true, showCom
             {/* Info Section */}
             <div style={styles.infoSection}>
               {/* Risk Level */}
-              <div style={styles.card}>
+              <div style={{
+                ...styles.card,
+                transition: 'all 0.3s ease',
+              }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-4px)';
+                  e.currentTarget.style.boxShadow = '0 10px 20px rgba(0, 0, 0, 0.15)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.1)';
+                }}
+              >
                 <div style={styles.cardHeader}>
                   <h3 style={styles.cardTitle}>Risk Level</h3>
                 </div>
                 <div style={styles.riskContent}>
-                  <div style={{...styles.riskBadge, backgroundColor: riskLevel.color}}>
+                  <div style={{
+                    ...styles.riskBadge, 
+                    backgroundColor: riskLevel.color,
+                    animation: 'pulse 2s ease-in-out infinite',
+                  }}>
                     {riskLevel.level}
                   </div>
                   <p style={styles.riskDetail}>
@@ -117,9 +227,22 @@ export default function AnnouncementPage({ showEmergencyContacts = true, showCom
 
               {/* Latest Incident */}
               {recentIncident && (
-                <div style={styles.card}>
+                <div style={{
+                  ...styles.card,
+                  transition: 'all 0.3s ease',
+                }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-4px)';
+                    e.currentTarget.style.boxShadow = '0 10px 20px rgba(0, 0, 0, 0.15)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.1)';
+                  }}
+                >
                   <div style={styles.cardHeader}>
                     <h3 style={styles.cardTitle}>Latest Incident</h3>
+                    <span style={styles.newBadge}>NEW</span>
                   </div>
                   <div style={styles.incidentContent}>
                     <div style={styles.incidentHeader}>
@@ -128,56 +251,137 @@ export default function AnnouncementPage({ showEmergencyContacts = true, showCom
                         {recentIncident.status}
                       </span>
                     </div>
-                    <p style={styles.incidentTime}>{formatDate(recentIncident.datetime)}</p>
+                    <p style={styles.incidentTime}>⏰ {formatDate(recentIncident.datetime)}</p>
                     <p style={styles.incidentDescription}>{recentIncident.description}</p>
-                    <p style={styles.responseTime}>Response time: {recentIncident.responsetime}</p>
+                    <p style={styles.responseTime}>⚡ Response time: {recentIncident.responsetime}</p>
                   </div>
                 </div>
               )}
 
               {/* Statistics */}
-              <div style={styles.card}>
+              <div style={{
+                ...styles.card,
+                transition: 'all 0.3s ease',
+              }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-4px)';
+                  e.currentTarget.style.boxShadow = '0 10px 20px rgba(0, 0, 0, 0.15)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.1)';
+                }}
+              >
                 <div style={styles.cardHeader}>
                   <h3 style={styles.cardTitle}>Incident Types</h3>
                 </div>
                 <div style={styles.statsContent}>
-                  {Object.entries(getIncidentsByType()).map(([type, count]) => (
-                    <div key={type} style={styles.statRow}>
-                      <span style={styles.statType}>{type}</span>
-                      <span style={styles.statCount}>{count}</span>
-                    </div>
-                  ))}
+                  {Object.entries(incidentTypes).map(([type, count]) => {
+                    const percentage = (count / maxCount) * 100;
+                    const isHovered = hoveredIncidentType === type;
+                    
+                    return (
+                      <div 
+                        key={type} 
+                        style={{
+                          ...styles.statRow,
+                          backgroundColor: isHovered ? '#f9fafb' : 'transparent',
+                          transition: 'all 0.2s ease',
+                          cursor: 'pointer',
+                          padding: '12px 8px',
+                          borderRadius: '6px',
+                          marginBottom: '8px',
+                        }}
+                        onMouseEnter={() => setHoveredIncidentType(type)}
+                        onMouseLeave={() => setHoveredIncidentType(null)}
+                      >
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                            <span style={styles.statType}>{type}</span>
+                            <span style={{
+                              ...styles.statCount,
+                              color: isHovered ? '#2563eb' : '#111827',
+                            }}>{count}</span>
+                          </div>
+                          <div style={styles.progressBar}>
+                            <div style={{
+                              ...styles.progressFill,
+                              width: `${percentage}%`,
+                              transition: 'width 0.5s ease',
+                            }}></div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
               {/* Emergency Contacts */}
               {showEmergencyContacts && (
-                <div style={styles.card}>
+                <div style={{
+                  ...styles.card,
+                  transition: 'all 0.3s ease',
+                }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-4px)';
+                    e.currentTarget.style.boxShadow = '0 10px 20px rgba(0, 0, 0, 0.15)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.1)';
+                  }}
+                >
                   <div style={styles.cardHeader}>
-                    <h3 style={styles.cardTitle}>Emergency Contacts</h3>
+                    <h3 style={styles.cardTitle}>🚨 Emergency Contacts</h3>
                   </div>
                   <div style={styles.contactsContent}>
-                    <div style={styles.contactItem}>
-                      <div>
-                        <div style={styles.contactName}>Emergency Services</div>
-                        <div style={styles.contactNumber}>911</div>
+                    {[
+                      { name: 'Emergency Services', number: '911', icon: '🚑' },
+                      { name: 'Local Emergency', number: '(02) 8888-0911', icon: '📞' },
+                      { name: 'Disaster Response', number: '(02) 911-1406', icon: '🆘' }
+                    ].map((contact) => (
+                      <div 
+                        key={contact.number}
+                        style={{
+                          ...styles.contactItem,
+                          backgroundColor: expandedContact === contact.number ? '#eff6ff' : '#f9fafb',
+                          transform: expandedContact === contact.number ? 'scale(1.02)' : 'scale(1)',
+                          transition: 'all 0.2s ease',
+                          cursor: 'pointer',
+                        }}
+                        onClick={() => setExpandedContact(expandedContact === contact.number ? null : contact.number)}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <span style={{ fontSize: '24px' }}>{contact.icon}</span>
+                          <div>
+                            <div style={styles.contactName}>{contact.name}</div>
+                            <div style={styles.contactNumber}>{contact.number}</div>
+                          </div>
+                        </div>
+                        <button 
+                          style={{
+                            ...styles.callButton,
+                            transform: 'scale(1)',
+                            transition: 'all 0.2s ease',
+                          }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCall(contact.number);
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.transform = 'scale(1.05)';
+                            e.currentTarget.style.backgroundColor = '#1d4ed8';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.transform = 'scale(1)';
+                            e.currentTarget.style.backgroundColor = '#2563eb';
+                          }}
+                        >
+                          📱 Call
+                        </button>
                       </div>
-                      <button style={styles.callButton}>Call</button>
-                    </div>
-                    <div style={styles.contactItem}>
-                      <div>
-                        <div style={styles.contactName}>Local Emergency</div>
-                        <div style={styles.contactNumber}>(02) 8888-0911</div>
-                      </div>
-                      <button style={styles.callButton}>Call</button>
-                    </div>
-                    <div style={styles.contactItem}>
-                      <div>
-                        <div style={styles.contactName}>Disaster Response</div>
-                        <div style={styles.contactNumber}>(02) 911-1406</div>
-                      </div>
-                      <button style={styles.callButton}>Call</button>
-                    </div>
+                    ))}
                   </div>
                 </div>
               )}
@@ -209,6 +413,7 @@ const styles = {
     backgroundColor: 'white',
     borderBottom: '1px solid #e5e7eb',
     padding: '40px 0',
+    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
   },
   container: {
     maxWidth: '1200px',
@@ -249,6 +454,7 @@ const styles = {
     borderRadius: '12px',
     padding: '24px',
     boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+    transition: 'all 0.3s ease',
   },
   cardHeader: {
     display: 'flex',
@@ -261,6 +467,25 @@ const styles = {
     fontWeight: '600',
     color: '#111827',
     margin: 0,
+  },
+  headerActions: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+  },
+  refreshButton: {
+    width: '32px',
+    height: '32px',
+    borderRadius: '50%',
+    border: '2px solid #e5e7eb',
+    backgroundColor: 'transparent',
+    cursor: 'pointer',
+    fontSize: '18px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    transition: 'all 0.3s ease',
+    color: '#6b7280',
   },
   liveIndicator: {
     display: 'flex',
@@ -282,6 +507,8 @@ const styles = {
   mapContainer: {
     height: '400px',
     marginBottom: '16px',
+    borderRadius: '8px',
+    overflow: 'hidden',
   },
   mapStats: {
     display: 'flex',
@@ -295,11 +522,13 @@ const styles = {
     flexDirection: 'column',
     alignItems: 'center',
     gap: '4px',
+    transition: 'all 0.3s ease',
   },
   statNumber: {
     fontSize: '28px',
     fontWeight: '700',
     color: '#111827',
+    transition: 'color 0.3s ease',
   },
   statLabel: {
     fontSize: '14px',
@@ -322,11 +551,21 @@ const styles = {
     color: 'white',
     fontSize: '20px',
     fontWeight: '700',
+    transition: 'all 0.3s ease',
   },
   riskDetail: {
     fontSize: '14px',
     color: '#6b7280',
     margin: 0,
+  },
+  newBadge: {
+    padding: '4px 8px',
+    backgroundColor: '#ef4444',
+    color: 'white',
+    fontSize: '10px',
+    fontWeight: '700',
+    borderRadius: '4px',
+    animation: 'pulse 2s infinite',
   },
   incidentContent: {
     display: 'flex',
@@ -377,13 +616,11 @@ const styles = {
   statsContent: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '12px',
+    gap: '4px',
   },
   statRow: {
     display: 'flex',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: '8px 0',
     borderBottom: '1px solid #f3f4f6',
   },
   statType: {
@@ -394,6 +631,19 @@ const styles = {
     fontSize: '16px',
     fontWeight: '600',
     color: '#111827',
+    transition: 'color 0.2s ease',
+  },
+  progressBar: {
+    width: '100%',
+    height: '4px',
+    backgroundColor: '#e5e7eb',
+    borderRadius: '2px',
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#2563eb',
+    borderRadius: '2px',
   },
   contactsContent: {
     display: 'flex',
@@ -404,9 +654,10 @@ const styles = {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: '12px',
+    padding: '16px',
     backgroundColor: '#f9fafb',
     borderRadius: '8px',
+    transition: 'all 0.2s ease',
   },
   contactName: {
     fontSize: '14px',
@@ -420,14 +671,27 @@ const styles = {
     color: '#111827',
   },
   callButton: {
-    padding: '8px 16px',
+    padding: '10px 20px',
     backgroundColor: '#2563eb',
     color: 'white',
     border: 'none',
-    borderRadius: '6px',
+    borderRadius: '8px',
     fontSize: '14px',
-    fontWeight: '500',
+    fontWeight: '600',
     cursor: 'pointer',
+    transition: 'all 0.2s ease',
+  },
+  notification: {
+    position: 'fixed',
+    top: '20px',
+    right: '20px',
+    backgroundColor: '#2563eb',
+    color: 'white',
+    padding: '16px 24px',
+    borderRadius: '8px',
+    boxShadow: '0 10px 20px rgba(0, 0, 0, 0.2)',
+    zIndex: 1000,
+    fontWeight: '500',
   },
   communityWrapper: {
     width: '100%',
@@ -446,12 +710,23 @@ const styles = {
   },
 };
 
-// Add keyframes for pulse animation in a style tag
+// Add keyframes for animations
 const styleSheet = document.createElement("style");
 styleSheet.textContent = `
   @keyframes pulse {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.5; }
+  }
+  
+  @keyframes slideInDown {
+    from {
+      transform: translateY(-100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
   }
   
   @media (max-width: 768px) {

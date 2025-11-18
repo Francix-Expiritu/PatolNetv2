@@ -124,8 +124,8 @@ const Message = () => {
   const styles = {
     container: {
       display: 'flex',
-      height: '100vh',
-      backgroundColor: '#f9fafb',
+      height: '100%', // Changed from 100vh
+      backgroundColor: '#f9fafb', // Kept for context
       fontFamily: 'system-ui, -apple-system, sans-serif'
     },
     sidebar: {

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import MessageModal from './MessageModal'; // Import the new modal
 
 function Dashboard() {
   const [incidentCount, setIncidentCount] = useState(0);
@@ -8,6 +9,7 @@ function Dashboard() {
   const [activitiesCount, setActivitiesCount] = useState(0);
   const [accountsCount, setAccountsCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [showMessageModal, setShowMessageModal] = useState(false);
 
   useEffect(() => {
     const fetchCounts = async () => {
@@ -65,8 +67,8 @@ function Dashboard() {
     fetchCounts();
   }, []);
 
-  const handleCardClick = (route) => {
-
+  const handleCardClick = (cardTitle) => {
+    if (cardTitle === 'Messages') setShowMessageModal(true);
   };
 
   const dashboardCards = [
@@ -129,12 +131,23 @@ function Dashboard() {
       description: 'Oversee all user accounts, roles, and permissions',
   
       priority: 'high'
+    },
+    {
+      id: 7,
+      title: 'Messages',
+      icon: '💬',
+      count: 0, // You can fetch this count if an endpoint is available
+      description: 'View and respond to messages from the community website',
+      priority: 'medium',
+      color: 'teal'
     }
   ];
 
   return (
     <div style={{
       minHeight: '100vh',
+      maxHeight: '100vh',
+      overflow: showMessageModal ? 'hidden' : 'auto',
       background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
       padding: 0,
@@ -207,7 +220,7 @@ function Dashboard() {
             {dashboardCards.map((card, index) => (
               <div
                 key={card.id}
-                onClick={() => handleCardClick(card.route)}
+                onClick={() => handleCardClick(card.title)}
                 style={{
                   background: 'white',
                   borderRadius: '16px',
@@ -315,6 +328,8 @@ function Dashboard() {
           </div>
         )}
       </div>
+
+      <MessageModal isOpen={showMessageModal} onClose={() => setShowMessageModal(false)} />
 
       <style>
         {`

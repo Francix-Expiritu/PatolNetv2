@@ -137,7 +137,7 @@ function GISMapping({ showOnlyMap }) {
 
     (async () => {
       try {
-        const response = await fetch(`${BASE_URL}/api/incident-types`, {
+        const response = await fetch(`${BASE_URL}/api/incident_types`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(newType),
@@ -180,7 +180,7 @@ function GISMapping({ showOnlyMap }) {
         setLoading(true);
         const [incidentsRes, typesRes] = await Promise.all([
           fetch(`${BASE_URL}/api/incidents`),
-          fetch(`${BASE_URL}/api/incident-types`) // Fetch custom types
+          fetch(`${BASE_URL}/api/incident_types`) // Fetch custom types
         ]);
 
         if (!incidentsRes.ok) throw new Error('Failed to fetch incidents');

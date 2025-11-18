@@ -2554,6 +2554,45 @@ app.delete("/api/tourist-spots/:id", (req, res) => {
   });
 });
 
+// API endpoint to fetch all custom incident types
+app.get("/api/incident_types", (req, res) => {
+  const sql = "SELECT * FROM incident_types ORDER BY name ASC";
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error("❌ SQL error fetching incident types:", err);
+      return res.status(500).json({ error: "Failed to fetch incident types" });
+    }
+    res.json(results);
+  });
+});
+
+// API endpoint to add a new incident type
+app.post("/api/incident_types", (req, res) => {
+  const { name, icon, color } = req.body;
+
+  if (!name || !icon || !color) {
+    return res.status(400).json({ success: false, message: "Name, icon, and color are required" });
+  }
+
+  const sql = "INSERT INTO incident_types (name, icon, color) VALUES (?, ?, ?)";
+  db.query(sql, [name, icon, color], (err, result) => {
+    if (err) {
+      if (err.code === "ER_DUP_ENTRY") {
+        return res.status(409).json({ success: false, message: "An incident type with this name already exists." });
+      }
+      console.error("❌ SQL error adding incident type:", err);
+      return res.status(500).json({ success: false, message: "Failed to add incident type" });
+    }
+    // Return the newly created type so the frontend can update its state
+    res.status(201).json({ 
+      id: result.insertId,
+      name,
+      icon,
+      color
+    });
+  });
+});
+
 // Start server
 const os = require("os");
 

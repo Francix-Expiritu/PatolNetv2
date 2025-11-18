@@ -3,12 +3,15 @@ import axios from 'axios';
 import MainSidebarWrapper from './MainSidebarWrapper';
 import EditScheduleModal from './Modals/EditScheduleModal';
 import './ScheduleAssignment.css'; // Import the CSS file
+import ScheduleCalendar from './ScheduleCalendar'; // Import the new calendar component
 import { BASE_URL } from '../config';
+import { Calendar, List } from 'lucide-react'; // Import icons
 
 const ScheduleAssignment = () => {
   const [personnel, setPersonnel] = useState([]);
   const [selectedPerson, setSelectedPerson] = useState(null);
   const [showModal, setShowModal] = useState(false);
+  const [showCalendar, setShowCalendar] = useState(false); // State to toggle calendar view
   const [formData, setFormData] = useState({ status: '', location: '', day: '', start_time: '', end_time: '', month: 'All' });
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -144,7 +147,8 @@ const ScheduleAssignment = () => {
     setFormData({
       status: person.CALCULATED_STATUS || '',
       location: person.SCHEDULE_LOCATION || '',
-      day: person.DAY || '',
+      // Ensure 'day' is always an array, splitting the string from the DB
+      day: person.DAY ? person.DAY.split(',').map(d => d.trim()) : [],
       start_time: person.START_TIME || '',
       end_time: person.END_TIME || '',
       month: person.MONTH || 'All'
@@ -164,7 +168,8 @@ const ScheduleAssignment = () => {
         // Update existing schedule
         response = await axios.put(`${BASE_URL}/api/schedules/${selectedPerson.SCHEDULE_ID}`, {
           location: formData.location,
-          day: formData.day,
+          // Join the array of days into a comma-separated string for the DB
+          day: Array.isArray(formData.day) ? formData.day.join(', ') : formData.day,
           start_time: formData.start_time,
           end_time: formData.end_time,
           month: formData.month
@@ -174,7 +179,8 @@ const ScheduleAssignment = () => {
         response = await axios.post(`${BASE_URL}/api/schedules`, {
           user: selectedPerson.USER,
           location: formData.location,
-          day: formData.day,
+          // Join the array of days into a comma-separated string for the DB
+          day: Array.isArray(formData.day) ? formData.day.join(', ') : formData.day,
           start_time: formData.start_time,
           end_time: formData.end_time,
           month: formData.month
@@ -193,9 +199,40 @@ const ScheduleAssignment = () => {
     }
   };
 
+  const handleClearSchedule = async () => {
+    if (!selectedPerson || !selectedPerson.SCHEDULE_ID) {
+      setError('No schedule to clear for this person.');
+      return;
+    }
+
+    if (window.confirm(`Are you sure you want to clear the schedule for ${selectedPerson.USER}?`)) {
+      try {
+        const response = await axios.delete(`${BASE_URL}/api/schedules/${selectedPerson.SCHEDULE_ID}`);
+        if (response.data.success) {
+          await loadSchedules();
+          closeModal();
+        } else {
+          setError('Failed to clear schedule. Please try again.');
+        }
+      } catch (err) {
+        console.error('Error clearing schedule:', err);
+        setError('An error occurred while clearing the schedule.');
+      }
+    }
+  };
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    const { name, value, type, checked } = e.target;
+    // Special handling for the 'day' checkboxes
+    if (name === 'day' && type === 'checkbox') {
+      setFormData(prev => {
+        const newDays = checked
+          ? [...prev.day, value] // Add day to array if checked
+          : prev.day.filter(d => d !== value); // Remove day from array if unchecked
+        return { ...prev, day: newDays };
+      });
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
   };
 
   const filteredPersonnel = personnel.filter(person =>
@@ -205,7 +242,8 @@ const ScheduleAssignment = () => {
   // Helper function to format datetime for display
   const formatScheduleTime = (day, startTime, endTime, month) => {
     if (!day || !startTime || !endTime) return "Not set";
-    
+    // If 'day' is an array, join it for display
+    const dayString = Array.isArray(day) ? day.join(', ') : day;
     try {
       const formatTime = (timeStr) => new Date(`1970-01-01T${timeStr}`).toLocaleTimeString('en-US', {
         hour: 'numeric',
@@ -213,7 +251,7 @@ const ScheduleAssignment = () => {
         hour12: true
       });
       const monthDisplay = month && month !== 'All' ? `${month} - ` : '';
-      return `${monthDisplay}${day}, ${formatTime(startTime)} - ${formatTime(endTime)}`;
+      return `${monthDisplay}${dayString}, ${formatTime(startTime)} - ${formatTime(endTime)}`;
     } catch (error) {
       return "Invalid date";
     }
@@ -226,6 +264,10 @@ const ScheduleAssignment = () => {
       return 'status-off-duty';
     }
     return 'status-default';
+  };
+
+  const handleCalendarEventClick = (person) => {
+    handleClick(person);
   };
 
   return (
@@ -251,6 +293,7 @@ const ScheduleAssignment = () => {
           formData={formData}
           onFormChange={handleChange}
           onSave={handleSave}
+          onClear={handleClearSchedule}
           getImageUrl={getImageUrl}
         />
 
@@ -283,6 +326,16 @@ const ScheduleAssignment = () => {
             <div className="action-buttons">
               <button
                 className="btn btn-secondary"
+                onClick={() => setShowCalendar(!showCalendar)}
+              >
+                {showCalendar ? (
+                  <><List size={16} style={{ marginRight: '8px' }} /> List View</>
+                ) : (
+                  <><Calendar size={16} style={{ marginRight: '8px' }} /> Calendar View</>
+                )}
+              </button>
+              <button
+                className="btn btn-secondary"
                 onClick={loadSchedules}
                 disabled={isLoading}
               >
@@ -291,65 +344,69 @@ const ScheduleAssignment = () => {
             </div>
           </div>
 
-          <div className="table-wrapper">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th className="col-id">ID</th>
-                  <th>Tanod</th>
-                  <th>Status</th>
-                  <th>Location</th>
-                  <th>Schedule Time</th>
-                  <th className="col-actions">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredPersonnel.length > 0 ? (
-                  filteredPersonnel.map((person) => (
-                    <tr key={person.ID}>
-                      <td className="font-medium">
-                        #{person.ID}
-                      </td>
-                      <td>
-                        <div className="tanod-cell">
-                          <div className="tanod-avatar">
-                            {/* Avatar component is now in EditScheduleModal.jsx */}
+          {showCalendar ? (
+            <ScheduleCalendar events={filteredPersonnel} onEventClick={handleCalendarEventClick} />
+          ) : (
+            <div className="table-wrapper">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th className="col-id">ID</th>
+                    <th>Tanod</th>
+                    <th>Status</th>
+                    <th>Location</th>
+                    <th>Schedule Time</th>
+                    <th className="col-actions">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredPersonnel.length > 0 ? (
+                    filteredPersonnel.map((person) => (
+                      <tr key={person.ID}>
+                        <td className="font-medium">
+                          #{person.ID}
+                        </td>
+                        <td>
+                          <div className="tanod-cell">
+                            <div className="tanod-avatar">
+                              {/* Avatar component is now in EditScheduleModal.jsx */}
+                            </div>
+                            <div className="tanod-name">
+                              {person.USER}
+                            </div>
                           </div>
-                          <div className="tanod-name">
-                            {person.USER}
-                          </div>
-                        </div>
-                      </td>
-                      <td>
-                        <span className={`status-badge ${getStatusClass(person.CALCULATED_STATUS)}`}>
-                          {person.CALCULATED_STATUS || "Off Duty"}
-                        </span>
-                      </td>
-                      <td>
-                        {person.SCHEDULE_LOCATION || "Not assigned"}
-                      </td>
-                      <td>{formatScheduleTime(person.DAY, person.START_TIME, person.END_TIME, person.MONTH)}</td>
-                      <td className="actions-cell">
-                        <button
-                          onClick={() => handleClick(person)}
-                          className="btn btn-edit"
-                        >
-     
-                          Add
-                        </button>
+                        </td>
+                        <td>
+                          <span className={`status-badge ${getStatusClass(person.CALCULATED_STATUS)}`}>
+                            {person.CALCULATED_STATUS || "Off Duty"}
+                          </span>
+                        </td>
+                        <td>
+                          {person.SCHEDULE_LOCATION || "Not assigned"}
+                        </td>
+                        <td>{formatScheduleTime(person.DAY, person.START_TIME, person.END_TIME, person.MONTH)}</td>
+                        <td className="actions-cell">
+                          <button
+                            onClick={() => handleClick(person)}
+                            className="btn btn-edit"
+                          >
+       
+                            Add
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="6" className="no-data">
+                        No tanods found.
                       </td>
                     </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="6" className="no-data">
-                      No tanods found.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
         </div>
       </div>
