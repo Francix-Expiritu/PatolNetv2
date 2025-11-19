@@ -1,6 +1,5 @@
-// Notifications.tsx - Displays user logs separated into new and viewed notifications
+// Notifications.tsx - Updated with modals for all notification types
 import React, { useState, useEffect, useCallback } from "react";
-
 import {
   View,
   Text,
@@ -12,12 +11,14 @@ import {
   RefreshControl,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import ReportedIncidentModal from './ReportedIncidentModal';
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "./app";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { BASE_URL } from "../../config";
+import { IncidentReportModal, ActivityLogModal, CommunityAlertModal } from './IncidentReportModal';
 
 type NotificationsRouteProp = RouteProp<RootStackParamList, "Notifications"> & {
   params: {
@@ -50,70 +51,6 @@ interface IncidentReport {
 }
 
 type NotificationType = 'log' | 'patrol' | 'resident' | 'assigned' | 'reported';
-
-interface NotificationItemProps {
-  id: number;
-  type: NotificationType;
-  title: string;
-  date: string;
-  time: string;
-  details: (string | React.ReactElement)[];
-  isNew: boolean;
-  isResolved?: boolean;
-  isUnresolvedButViewed?: boolean;
-  resolvedByCurrentUser?: boolean;
-  onPress: () => void;
-  onDelete: () => void;
-  iconName: keyof typeof Ionicons.glyphMap;
-  iconColor: string;
-  styleConfig: {
-    container: object;
-    title: object;
-    badge?: object;
-  };
-}
-
-const NotificationItem: React.FC<NotificationItemProps> = React.memo(({
-  id, type, title, date, time, details, isNew, isResolved, isUnresolvedButViewed, resolvedByCurrentUser,
-  onPress, onDelete, iconName, iconColor, styleConfig
-}) => {
-  return (
-    <TouchableOpacity
-      key={`${type}_${id}`}
-      style={[styles.notificationItem, styleConfig.container]}
-      onPress={onPress}
-    >
-      <View style={styles.notificationHeader}>
-        <View style={styles.notificationIcon}>
-          <Ionicons name={iconName} size={20} color={iconColor} />
-        </View>
-        <View style={styles.notificationContent}>
-          <Text style={[styles.notificationTitle, styleConfig.title]}>{title}</Text>
-          <Text style={styles.notificationDate}>{date} at {time}</Text>
-          {details.map((detail, index) =>
-            typeof detail === 'string' ? (
-              <Text key={index} style={styles.notificationLocation}>{detail}</Text>
-            ) : (
-              <React.Fragment key={index}>{detail}</React.Fragment>
-            )
-          )}
-           {resolvedByCurrentUser && (
-              <Text style={styles.resolvedByMeText}>✓ Resolved by you</Text>
-            )}
-            {isUnresolvedButViewed && (
-              <Text style={styles.unresolvedViewedText}>
-                {type === 'assigned' ? '⚠️ Needs attention' : '⏳ Awaiting response'}
-              </Text>
-            )}
-        </View>
-        <TouchableOpacity style={styles.deleteButton} onPress={onDelete}>
-          <Ionicons name="trash-bin-outline" size={20} color="#e74c3c" />
-        </TouchableOpacity>
-        {styleConfig.badge && <View style={styleConfig.badge} />}
-      </View>
-    </TouchableOpacity>
-  );
-});
 
 const Notifications: React.FC = () => {
   // State Consolidation
@@ -155,6 +92,22 @@ const Notifications: React.FC = () => {
   const { username, incidentNotifications = [] } = route.params;
   const [userRole, setUserRole] = useState<string>('');
 
+  // Modal states
+  const [isAssignedModalVisible, setIsAssignedModalVisible] = useState(false);
+  const [selectedAssignedIncident, setSelectedAssignedIncident] = useState<IncidentReport | null>(null);
+  
+  const [isReportedModalVisible, setIsReportedModalVisible] = useState(false);
+  const [selectedReportedIncident, setSelectedReportedIncident] = useState<IncidentReport | null>(null);
+  
+  const [isActivityModalVisible, setIsActivityModalVisible] = useState(false);
+  const [selectedActivityLog, setSelectedActivityLog] = useState<LogEntry | null>(null);
+  
+  const [isIncidentReportModalVisible, setIsIncidentReportModalVisible] = useState(false);
+  const [selectedIncidentReport, setSelectedIncidentReport] = useState<LogEntry | null>(null);
+  
+  const [isCommunityAlertModalVisible, setIsCommunityAlertModalVisible] = useState(false);
+  const [selectedCommunityAlert, setSelectedCommunityAlert] = useState<LogEntry | null>(null);
+
   // Helper function to categorize incidents
   const categorizeIncidents = (incidents: IncidentReport[], currentViewedIds: number[]) => {
     const unresolved = incidents.filter(incident => incident.status !== 'Resolved');
@@ -184,15 +137,15 @@ const Notifications: React.FC = () => {
   const viewedResidentLogsList = notifications.residentLogs.filter(log => viewedIds.resident.includes(log.ID) && !deletedIds.resident.includes(log.ID));
 
   const loadUserRole = async () => {
-  try {
-    const role = await AsyncStorage.getItem('userRole');
-    if (role) {
-      setUserRole(role);
+    try {
+      const role = await AsyncStorage.getItem('userRole');
+      if (role) {
+        setUserRole(role);
+      }
+    } catch (error) {
+      console.error("Error loading user role:", error);
     }
-  } catch (error) {
-    console.error("Error loading user role:", error);
-  }
-};
+  };
 
   const loadStateFromStorage = useCallback(async (stateType: 'viewed' | 'deleted') => {
     try {
@@ -255,7 +208,6 @@ const Notifications: React.FC = () => {
         ...prev,
         logs: response.data || []
       }));
-      console.log(`Fetched ${response.data?.length || 0} logs for ${username}`);
     } catch (error) {
       console.error("Error fetching logs:", error);
       Alert.alert("Error", "Failed to load notifications");
@@ -270,7 +222,6 @@ const Notifications: React.FC = () => {
         ...prev,
         patrolLogs: response.data || []
       }));
-      console.log(`Fetched ${response.data?.length || 0} patrol logs for ${username}`);
     } catch (error) {
       console.error("Error fetching patrol logs:", error);
     }
@@ -281,7 +232,6 @@ const Notifications: React.FC = () => {
     try {
       const response = await axios.get(`${BASE_URL}/api/logs_resident/${username}`);
       setNotifications(prev => ({ ...prev, residentLogs: response.data || [] }));
-      console.log(`Fetched ${response.data?.length || 0} resident logs for ${username}`);
     } catch (error) {
       console.error("Error fetching resident logs:", error);
     }
@@ -297,7 +247,6 @@ const Notifications: React.FC = () => {
         assignedIncidents: fetchedIncidents
       }));
       
-      // Auto-mark incidents resolved by current user as viewed
       const resolvedByCurrentUser = fetchedIncidents
         .filter((incident: IncidentReport) => incident.resolved_by === username)
         .map((incident: IncidentReport) => incident.id);
@@ -309,8 +258,6 @@ const Notifications: React.FC = () => {
         setViewedIds(prev => ({ ...prev, assigned: newViewed }));
         await AsyncStorage.setItem(`viewed_assigned_incidents_${username}`, JSON.stringify(newViewed));
       }
-      
-      console.log(`Fetched ${fetchedIncidents.length} assigned incidents for ${username}`);
     } catch (error) {
       console.error("Error fetching assigned incidents:", error);
     }
@@ -325,8 +272,6 @@ const Notifications: React.FC = () => {
         ...prev,
         reportedIncidents: fetchedIncidents
       }));
-      
-      console.log(`Fetched ${fetchedIncidents.length} reported incidents for ${username}`);
     } catch (error) {
       console.error("Error fetching reported incidents:", error);
     }
@@ -387,7 +332,6 @@ const Notifications: React.FC = () => {
       AsyncStorage.setItem(`viewed_resident_logs_${username}`, JSON.stringify(newViewedIds.resident)),
     ]);
 
-    // Also update the 'last seen' IDs in AsyncStorage so the NavBar badge resets
     try {
       const { logs, assignedIncidents, patrolLogs, residentLogs } = notifications;
       const getMaxId = (items: { ID?: number; id?: number }[]) =>
@@ -403,10 +347,7 @@ const Notifications: React.FC = () => {
       if (latestPatrolLogId) await AsyncStorage.setItem(`lastPatrolLogId_${username}`, latestPatrolLogId.toString());
       if (latestResidentLogId) await AsyncStorage.setItem(`lastResidentLogId_${username}`, latestResidentLogId.toString());
       
-      // Clear the unread incident IDs set used by the NavBar
       await AsyncStorage.setItem(`unreadIncidentIds_${username}`, JSON.stringify([]));
-
-      console.log('Synced "mark all as viewed" with NavBar state.');
     } catch (error) {
       console.error("Error syncing with NavBar state from Notifications:", error);
     }
@@ -445,7 +386,6 @@ const Notifications: React.FC = () => {
         resolved_by: username
       });
       
-      // Update local state for assigned incidents
       setNotifications(prev => ({
         ...prev,
         assignedIncidents: prev.assignedIncidents.map(incident =>
@@ -463,156 +403,131 @@ const Notifications: React.FC = () => {
     }
   };
 
-  // Show incident details for assigned incidents (with resolve option)
-  const showAssignedIncidentDetails = (incident: IncidentReport) => {
-    const incidentDetails = `Incident Type: ${incident.type}
-Reported By: ${incident.reported_by}
-Location: ${incident.location}
-Status: ${incident.status}${incident.resolved_by ? `\nResolved By: ${incident.resolved_by}` : ''}`;
-
-    const buttons: Array<{
-      text: string;
-      style?: "default" | "cancel" | "destructive";
-      onPress?: () => void;
-    }> = [
-      { text: "Cancel", style: "cancel" }
-    ];
-
-    // Only show resolve button if incident is not already resolved
-    if (incident.status !== 'Resolved') {
-      buttons.push({
-        text: "Mark as Resolved",
-        onPress: () => {
-          Alert.alert(
-            "Confirm Resolution",
-            "Are you sure you want to mark this incident as resolved?",
-            [
-              { text: "Cancel", style: "cancel" },
-              {
-                text: "Confirm",
-                onPress: () => resolveIncident(incident.id),
-              },
-            ]
-          );
-        },
-      });
+  // Function to resolve a patrol log incident with photo proof
+  const resolvePatrolLog = async (logId: number, imageUri: string) => {
+    if (!username) {
+      Alert.alert("Error", "Username not found. Cannot resolve incident.");
+      return;
     }
 
-    Alert.alert("Assigned Incident", incidentDetails, buttons);
+    try {
+      const formData = new FormData();
+      formData.append('logId', logId.toString());
+      formData.append('resolved_by', username);
+
+      // Prepare image for upload
+      const filename = imageUri.split('/').pop()!;
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : `image`;
+
+      // The 'any' type is used here because the standard FormData type definition
+      // in TypeScript doesn't perfectly match React Native's structure for file uploads.
+      formData.append('resolutionImage', {
+        uri: imageUri,
+        name: filename,
+        type,
+      } as any);
+
+      // API call to a new endpoint for resolving patrol logs
+      const response = await axios.post(`${BASE_URL}/api/patrol-logs/resolve`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      if (response.data.success) {
+        Alert.alert('Success', 'Incident has been resolved and proof has been uploaded.');
+        await updateStoredIds(logId, 'patrol', 'viewed'); // Mark as viewed locally
+      }
+    } catch (error) {
+      console.error("Error resolving patrol log:", error);
+      Alert.alert("Error", "Failed to submit resolution. Please check your connection and try again.");
+      throw error; // Re-throw to prevent modal from closing on failure
+    }
   };
 
-      const resolveReportedIncident = async (incidentId: number) => {
-        try {
-          await axios.put(`${BASE_URL}/api/incidents/${incidentId}/resolve`, {
-            resolved_by: username
-          });
-          
-          // Update local state for reported incidents
-          setNotifications(prev => ({
-            ...prev,
-            reportedIncidents: prev.reportedIncidents.map(incident =>
-              incident.id === incidentId 
-                ? { ...incident, status: 'Resolved', resolved_by: username }
-                : incident
-            )
-          }));
-          
-          await updateStoredIds(incidentId, 'reported', 'viewed');
-          
-          Alert.alert("Success", "Incident marked as resolved");
-        } catch (error) {
-          console.error("Error resolving incident:", error);
-          Alert.alert("Error", "Failed to resolve incident");
-        }
-      };
+  // Show incident details in a modal
+  const showAssignedIncidentDetails = (incident: IncidentReport) => {
+    setSelectedAssignedIncident(incident);
+    setIsAssignedModalVisible(true);
+    // updateStoredIds(incident.id, 'assigned', 'viewed'); // Removed to prevent auto-marking as read
+  };
 
-// Add this function after the existing resolveReportedIncident function
-const resolveReportedIncidentAsAdmin = async (incidentId: number) => {
-  try {
-    await axios.put(`${BASE_URL}/api/incidents/${incidentId}/resolve`, {
-      resolved_by: 'Admin'
-    });
-    
-    // Update local state for reported incidents
-    setNotifications(prev => ({
-      ...prev,
-      reportedIncidents: prev.reportedIncidents.map(incident =>
-        incident.id === incidentId 
-          ? { ...incident, status: 'Resolved', resolved_by: 'Admin' }
-          : incident
-      )
-    }));
-    
-    await updateStoredIds(incidentId, 'reported', 'viewed');
-    
-    Alert.alert("Success", "Incident marked as resolved by Admin");
-  } catch (error) {
-    console.error("Error resolving incident as admin:", error);
-    Alert.alert("Error", "Failed to resolve incident");
-  }
-};
+  const resolveReportedIncident = async (incidentId: number) => {
+    try {
+      await axios.put(`${BASE_URL}/api/incidents/${incidentId}/resolve`, {
+        resolved_by: username
+      });
+      
+      setNotifications(prev => ({
+        ...prev,
+        reportedIncidents: prev.reportedIncidents.map(incident =>
+          incident.id === incidentId 
+            ? { ...incident, status: 'Resolved', resolved_by: username }
+            : incident
+        )
+      }));
+      
+      await updateStoredIds(incidentId, 'reported', 'viewed');
+      
+      Alert.alert("Success", "Incident marked as resolved");
+    } catch (error) {
+      console.error("Error resolving incident:", error);
+      Alert.alert("Error", "Failed to resolve incident");
+    }
+  };
 
-  // Updated showReportedIncidentDetails function
-const showReportedIncidentDetails = (incident: IncidentReport) => {
-  const incidentDetails = `Incident Type: ${incident.type}
-Location: ${incident.location}
-Status: ${incident.status === 'Resolved' && incident.resolved_by === 'Admin' 
-  ? 'Marked as Resolved by Admin' 
-  : incident.status}${incident.assigned ? `
-Assigned To: ${incident.assigned}` : `
-Not yet assigned`}${incident.resolved_by && incident.resolved_by !== 'Admin' ? `
-Resolved By: ${incident.resolved_by}` : ''}`;
+  const resolveReportedIncidentAsAdmin = async (incidentId: number) => {
+    try {
+      await axios.put(`${BASE_URL}/api/incidents/${incidentId}/resolve`, {
+        resolved_by: 'Admin'
+      });
+      
+      setNotifications(prev => ({
+        ...prev,
+        reportedIncidents: prev.reportedIncidents.map(incident =>
+          incident.id === incidentId 
+            ? { ...incident, status: 'Resolved', resolved_by: 'Admin' }
+            : incident
+        )
+      }));
+      
+      await updateStoredIds(incidentId, 'reported', 'viewed');
+      
+      Alert.alert("Success", "Incident marked as resolved by Admin");
+    } catch (error) {
+      console.error("Error resolving incident as admin:", error);
+      Alert.alert("Error", "Failed to resolve incident");
+    }
+  };
 
-  const buttons: Array<{
-    text: string;
-    style?: "default" | "cancel" | "destructive";
-    onPress?: () => void;
-  }> = [
-    { text: "Cancel", style: "cancel" }
-  ];
+  const showReportedIncidentDetails = (incident: IncidentReport) => {
+    setSelectedReportedIncident(incident);
+    setIsReportedModalVisible(true);
+    updateStoredIds(incident.id, 'reported', 'viewed');
+  };
 
-  // Show resolve button for Tanod if incident is not already resolved
-  if (userRole === 'Tanod' && incident.status !== 'Resolved') {
-    buttons.push({
-      text: "Mark as Resolved",
-      onPress: () => {
-        Alert.alert(
-          "Confirm Resolution",
-          "Are you sure you want to mark this incident as resolved?",
-          [
-            { text: "Cancel", style: "cancel" },
-            {
-              text: "Confirm",
-              onPress: () => resolveReportedIncident(incident.id),
-            },
-          ]
-        );
-      },
-    });
-  }
+  // Show activity log modal
+  const showActivityLogDetails = (log: LogEntry) => {
+    setSelectedActivityLog(log);
+    setIsActivityModalVisible(true);
+    updateStoredIds(log.ID, 'log', 'viewed');
+  };
 
-  // Show admin resolve button for Admin if incident is not already resolved
-  if (userRole === 'Admin' && incident.status !== 'Resolved') {
-    buttons.push({
-      text: "Mark as Resolved (Admin)",
-      onPress: () => {
-        Alert.alert(
-          "Confirm Admin Resolution",
-          "Are you sure you want to mark this incident as resolved by Admin?",
-          [
-            { text: "Cancel", style: "cancel" },
-            {
-              text: "Confirm",
-              onPress: () => resolveReportedIncidentAsAdmin(incident.id),
-            },
-          ]
-        );
-      },
-    });
-  }
+  // Show incident report modal
+  const showIncidentReportDetails = (log: LogEntry) => {
+    setSelectedIncidentReport(log);
+    setIsIncidentReportModalVisible(true);
+    // updateStoredIds(log.ID, 'patrol', 'viewed'); // Removed to prevent auto-marking as read
+  };
 
-  Alert.alert("Your Report", incidentDetails, buttons);
-};
+  // Show community alert modal
+  const showCommunityAlertDetails = (log: LogEntry) => {
+    setSelectedCommunityAlert(log);
+    setIsCommunityAlertModalVisible(true);
+    updateStoredIds(log.ID, 'resident', 'viewed');
+  };
+
   // Render assigned incident item
   const renderAssignedIncidentItem = (incident: IncidentReport, isNew: boolean) => {
     const date = new Date(incident.created_at).toLocaleDateString();
@@ -630,10 +545,7 @@ Resolved By: ${incident.resolved_by}` : ''}`;
           resolvedByCurrentUser && styles.resolvedByMeNotification,
           isUnresolvedButViewed && styles.unresolvedViewedNotification
         ]}
-        onPress={() => {
-          updateStoredIds(incident.id, 'assigned', 'viewed');
-          showAssignedIncidentDetails(incident);
-        }}
+        onPress={() => showAssignedIncidentDetails(incident)}
       >
         <View style={styles.notificationHeader}> 
           <View style={styles.notificationIcon}>
@@ -708,10 +620,7 @@ Resolved By: ${incident.resolved_by}` : ''}`;
           isNew ? styles.newReportedNotification : styles.viewedNotification,
           isUnresolvedButViewed && styles.unresolvedViewedNotification
         ]}
-        onPress={() => {
-          updateStoredIds(incident.id, 'reported', 'viewed');
-          showReportedIncidentDetails(incident);
-        }}
+        onPress={() => showReportedIncidentDetails(incident)}
       >
         <View style={styles.notificationHeader}>
           <View style={styles.notificationIcon}>
@@ -737,24 +646,24 @@ Resolved By: ${incident.resolved_by}` : ''}`;
               <Text style={styles.notificationLocation}>{incident.location}</Text>
             </View>
             <Text style={[ 
-                styles.notificationLocation,
-                isResolved && { color: "#4CAF50", fontWeight: "bold" },
-                isUnresolvedButViewed && { color: "#FF9800", fontWeight: "bold" }
-              ]}>
-                Status: {incident.status === 'Resolved' && incident.resolved_by === 'Admin' 
-                  ? 'Marked as Resolved by Admin' 
-                  : incident.status}
+              styles.notificationLocation,
+              isResolved && { color: "#4CAF50", fontWeight: "bold" },
+              isUnresolvedButViewed && { color: "#FF9800", fontWeight: "bold" }
+            ]}>
+              Status: {incident.status === 'Resolved' && incident.resolved_by === 'Admin' 
+                ? 'Marked as Resolved by Admin' 
+                : incident.status}
+            </Text>
+            {incident.assigned && (
+              <Text style={styles.incidentReporter}>
+                Assigned to: {incident.assigned}
               </Text>
-                          {incident.assigned && (
-                <Text style={styles.incidentReporter}>
-                  Assigned to: {incident.assigned}
-                </Text>
-              )}
-              {!incident.assigned && !(incident.status === 'Resolved' && incident.resolved_by === 'Admin') && (
-                <Text style={[styles.incidentReporter, { color: "#FF9800" }]}>
-                  Not yet assigned
-                </Text>
-              )}
+            )}
+            {!incident.assigned && !(incident.status === 'Resolved' && incident.resolved_by === 'Admin') && (
+              <Text style={[styles.incidentReporter, { color: "#FF9800" }]}>
+                Not yet assigned
+              </Text>
+            )}
             {isUnresolvedButViewed && (
               <Text style={styles.unresolvedViewedText}>
                 ⏳ Awaiting response
@@ -777,7 +686,8 @@ Resolved By: ${incident.resolved_by}` : ''}`;
 
   // Render resident log item
   const renderResidentLogItem = (log: LogEntry, isNew: boolean) => {
-    const logDisplay = getResidentLogDisplayText(log);
+    const date = new Date(log.TIME).toLocaleDateString();
+    const time = new Date(log.TIME).toLocaleTimeString();
 
     return (
       <TouchableOpacity
@@ -786,7 +696,7 @@ Resolved By: ${incident.resolved_by}` : ''}`;
           styles.notificationItem,
           isNew ? styles.newCommunityAlertNotification : styles.viewedNotification
         ]}
-        onPress={() => updateStoredIds(log.ID, 'resident', 'viewed')}
+        onPress={() => showCommunityAlertDetails(log)}
       >
         <View style={styles.notificationHeader}>
           <View style={styles.notificationIcon}>
@@ -801,10 +711,10 @@ Resolved By: ${incident.resolved_by}` : ''}`;
               📢 Community Alert
             </Text>
             <Text style={styles.notificationDate}>
-              {logDisplay.date} at {logDisplay.time}
+              {date} at {time}
             </Text>
             <Text style={styles.notificationLocation}>
-              {logDisplay.action}
+              {log.ACTION}
             </Text>
           </View>
           <TouchableOpacity style={styles.deleteButton} onPress={() => deleteNotification(log.ID, 'resident')}> 
@@ -820,64 +730,9 @@ Resolved By: ${incident.resolved_by}` : ''}`;
     );
   };
 
-  // Helper function to format log display text
-  const getLogDisplayText = (log: LogEntry) => {
-    const date = new Date(log.TIME).toLocaleDateString();
-    const time = new Date(log.TIME).toLocaleTimeString();
-    let action = log.ACTION || 'Activity';
-    
-    // Format based on TIME_IN and TIME_OUT
-    if (log.TIME_IN && log.TIME_OUT) {
-      const timeIn = new Date(log.TIME_IN).toLocaleTimeString();
-      const timeOut = new Date(log.TIME_OUT).toLocaleTimeString();
-      action = `Time In: ${timeIn}, Time Out: ${timeOut}`;
-    } else if (log.TIME_IN) {
-      const timeIn = new Date(log.TIME_IN).toLocaleTimeString();
-      action = `Time In: ${timeIn}`;
-    } else if (log.TIME_OUT) {
-      const timeOut = new Date(log.TIME_OUT).toLocaleTimeString();
-      action = `Time Out: ${timeOut}`;
-    }
-    
-    return {
-      date,
-      time,
-      action,
-      location: log.LOCATION || null
-    };
-  };
-
   // Separate logs into new and viewed
   const newNotifications = notifications.logs.filter(log => !viewedIds.log.includes(log.ID) && !deletedIds.log.includes(log.ID));
   const viewedNotificationsList = notifications.logs.filter(log => viewedIds.log.includes(log.ID) && !deletedIds.log.includes(log.ID));
-
-  // Helper function to format resident log display text
-  const getResidentLogDisplayText = (log: LogEntry) => {
-    const date = new Date(log.TIME).toLocaleDateString();
-    const time = new Date(log.TIME).toLocaleTimeString();
-    const action = log.ACTION || 'Community Alert';
-
-    return {
-      date,
-      time,
-      action,
-      location: log.LOCATION || null
-    };
-  };
-
-  // Helper function to format patrol log display text
-  const getPatrolLogDisplayText = (log: LogEntry) => {
-    const date = new Date(log.TIME).toLocaleDateString();
-    const time = new Date(log.TIME).toLocaleTimeString();
-    const action = log.ACTION || 'Incident Report';
-
-    return {
-      date,
-      time,
-      action,
-      location: log.LOCATION || null
-    };
-  };
 
   // Separate patrol logs into new and viewed
   const newPatrolLogs = notifications.patrolLogs.filter(log => !viewedIds.patrol.includes(log.ID) && !deletedIds.patrol.includes(log.ID));
@@ -885,7 +740,8 @@ Resolved By: ${incident.resolved_by}` : ''}`;
 
   // Render notification item
   const renderNotificationItem = (log: LogEntry, isNew: boolean) => {
-    const logDisplay = getLogDisplayText(log);
+    const date = new Date(log.TIME).toLocaleDateString();
+    const time = new Date(log.TIME).toLocaleTimeString();
     
     return (
       <TouchableOpacity
@@ -894,7 +750,7 @@ Resolved By: ${incident.resolved_by}` : ''}`;
           styles.notificationItem,
           isNew ? styles.newNotification : styles.viewedNotification
         ]}
-        onPress={() => updateStoredIds(log.ID, 'log', 'viewed')}
+        onPress={() => showActivityLogDetails(log)}
       >
         <View style={styles.notificationHeader}>
           <View style={styles.notificationIcon}>
@@ -906,14 +762,14 @@ Resolved By: ${incident.resolved_by}` : ''}`;
           </View>
           <View style={styles.notificationContent}>
             <Text style={[styles.notificationTitle, isNew && styles.newNotificationTitle]}>
-              {logDisplay.action}
+              {log.ACTION}
             </Text>
             <Text style={styles.notificationDate}>
-              {logDisplay.date} at {logDisplay.time}
+              {date} at {time}
             </Text>
-            {logDisplay.location && (
+            {log.LOCATION && (
               <Text style={styles.notificationLocation}>
-                📍 {logDisplay.location}
+                📍 {log.LOCATION}
               </Text>
             )}
           </View>
@@ -932,7 +788,8 @@ Resolved By: ${incident.resolved_by}` : ''}`;
 
   // Render patrol log item
   const renderPatrolLogItem = (log: LogEntry, isNew: boolean) => {
-    const logDisplay = getPatrolLogDisplayText(log);
+    const date = new Date(log.TIME).toLocaleDateString();
+    const time = new Date(log.TIME).toLocaleTimeString();
 
     return (
       <TouchableOpacity
@@ -941,7 +798,7 @@ Resolved By: ${incident.resolved_by}` : ''}`;
           styles.notificationItem,
           isNew ? styles.newIncidentReportNotification : styles.viewedNotification
         ]}
-        onPress={() => updateStoredIds(log.ID, 'patrol', 'viewed')}
+        onPress={() => showIncidentReportDetails(log)}
       >
         <View style={styles.notificationHeader}>
           <View style={styles.notificationIcon}>
@@ -953,14 +810,14 @@ Resolved By: ${incident.resolved_by}` : ''}`;
           </View>
           <View style={styles.notificationContent}>
             <Text style={[styles.notificationTitle, isNew && styles.newIncidentReportTitle]}>
-              🚨 {logDisplay.action}
+              🚨 {log.ACTION || 'Incident Report'}
             </Text>
             <Text style={styles.notificationDate}>
-              {logDisplay.date} at {logDisplay.time}
+              {date} at {time}
             </Text>
-            {logDisplay.location && (
+            {log.LOCATION && (
               <Text style={styles.notificationLocation}>
-                📍 {logDisplay.location}
+                📍 {log.LOCATION}
               </Text>
             )}
           </View>
@@ -1022,6 +879,56 @@ Resolved By: ${incident.resolved_by}` : ''}`;
         </TouchableOpacity>
       </View>
 
+      {/* All Modals */}
+     
+      <ReportedIncidentModal
+        isVisible={isReportedModalVisible}
+        incident={selectedReportedIncident}
+        userRole={userRole}
+        username={username}
+        onClose={() => setIsReportedModalVisible(false)}
+        onResolve={() => selectedReportedIncident && resolveReportedIncident(selectedReportedIncident.id).then(() => setIsReportedModalVisible(false))}
+        onResolveAsAdmin={() => selectedReportedIncident && resolveReportedIncidentAsAdmin(selectedReportedIncident.id).then(() => setIsReportedModalVisible(false))}
+      />
+
+    {/* All Modals */}
+
+{/* Incident Report Modal for Tanods (Patrol Logs) */}
+<IncidentReportModal
+  isVisible={isIncidentReportModalVisible}
+  log={selectedIncidentReport}
+  onClose={() => setIsIncidentReportModalVisible(false)}
+  onMarkAsRead={() => selectedIncidentReport && updateStoredIds(selectedIncidentReport.ID, 'patrol', 'viewed')}
+  onResolve={resolvePatrolLog}
+/>
+
+{/* Activity Log Modal */}
+<ActivityLogModal
+  isVisible={isActivityModalVisible}
+  log={selectedActivityLog}
+  onClose={() => setIsActivityModalVisible(false)}
+  onMarkAsRead={() => selectedActivityLog && updateStoredIds(selectedActivityLog.ID, 'log', 'viewed')}
+/>
+
+{/* Community Alert Modal for Residents */}
+<CommunityAlertModal
+  isVisible={isCommunityAlertModalVisible}
+  log={selectedCommunityAlert}
+  onClose={() => setIsCommunityAlertModalVisible(false)}
+  onMarkAsRead={() => selectedCommunityAlert && updateStoredIds(selectedCommunityAlert.ID, 'resident', 'viewed')}
+/>
+
+{/* Reported Incident Modal (existing) */}
+<ReportedIncidentModal
+  isVisible={isReportedModalVisible}
+  incident={selectedReportedIncident}
+  userRole={userRole}
+  username={username}
+  onClose={() => setIsReportedModalVisible(false)}
+  onResolve={() => selectedReportedIncident && resolveReportedIncident(selectedReportedIncident.id).then(() => setIsReportedModalVisible(false))}
+  onResolveAsAdmin={() => selectedReportedIncident && resolveReportedIncidentAsAdmin(selectedReportedIncident.id).then(() => setIsReportedModalVisible(false))}
+/>
+
       <ScrollView
         style={styles.scrollContainer}
         refreshControl={
@@ -1043,7 +950,7 @@ Resolved By: ${incident.resolved_by}` : ''}`;
         {/* Summary */}
         <View style={styles.summary}>
           <Text style={styles.summaryText}>
-            {totalNew} new {totalViewed} viewed
+            {totalNew} new • {totalViewed} viewed
           </Text>
         </View>
 
@@ -1226,7 +1133,7 @@ const styles = StyleSheet.create({
     borderBottomColor: "#f0f0f0",
   },
   newNotification: {
-    backgroundColor: "#f8ffF8",
+    backgroundColor: "#f8fff8",
     borderLeftWidth: 4,
     borderLeftColor: "#4CAF50",
   },
@@ -1300,13 +1207,13 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   newIncidentTitle: {
-    fontWeight: "bold" as const,
+    fontWeight: "bold",
     color: "#D32F2F",
   },
   incidentReporter: {
     fontSize: 13,
     color: "#777",
-    fontStyle: "italic" as const,
+    fontStyle: "italic",
     marginTop: 2,
   },
   newIncidentBadge: {
@@ -1319,7 +1226,7 @@ const styles = StyleSheet.create({
   resolvedByMeText: {
     fontSize: 12,
     color: "#2196F3",
-    fontWeight: "bold" as const,
+    fontWeight: "bold",
     marginTop: 4,
   },
   unresolvedViewedNotification: {
@@ -1328,13 +1235,13 @@ const styles = StyleSheet.create({
     borderLeftColor: "#FF9800",
   },
   unresolvedViewedTitle: {
-    fontWeight: "bold" as const,
+    fontWeight: "bold",
     color: "#E65100",
   },
   unresolvedViewedText: {
     fontSize: 12,
     color: "#FF9800",
-    fontWeight: "bold" as const,
+    fontWeight: "bold",
     marginTop: 4,
   },
   unresolvedViewedBadge: {
@@ -1345,56 +1252,53 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   newReportedNotification: {
-  backgroundColor: "#f0f8ff",
-  borderLeftWidth: 4,
-  borderLeftColor: "#2196F3",
-},
-newReportedTitle: {
-  fontWeight: "bold",
-  color: "#1565C0",
-},
-newReportedBadge: {
-  width: 8,
-  height: 8,
-  borderRadius: 4,
-  backgroundColor: "#2196F3",
-  marginTop: 5,
-},
-
-// New styles for incident report notifications
-newIncidentReportNotification: {
-  backgroundColor: "#ffebee", // Light red background
-  borderLeftWidth: 4,
-  borderLeftColor: "#D32F2F", // Red border
-},
-newIncidentReportTitle: {
-  fontWeight: "bold",
-  color: "#C62828", // Darker red text
-},
-newIncidentReportBadge: {
-  width: 8,
-  height: 8,
-  borderRadius: 4,
-  backgroundColor: "#D32F2F", // Red badge
-  marginTop: 5,
-},
-// New styles for community alert notifications
-newCommunityAlertNotification: {
-  backgroundColor: "#fffbe6", // Light yellow
-  borderLeftWidth: 4,
-  borderLeftColor: "#FFC107", // Amber
-},
-newCommunityAlertTitle: {
-  fontWeight: "bold",
-  color: "#FFA000", // Darker Amber
-},
-newCommunityAlertBadge: {
-  width: 8,
-  height: 8,
-  borderRadius: 4,
-  backgroundColor: "#FFC107", // Amber
-  marginTop: 5,
-},
+    backgroundColor: "#f0f8ff",
+    borderLeftWidth: 4,
+    borderLeftColor: "#2196F3",
+  },
+  newReportedTitle: {
+    fontWeight: "bold",
+    color: "#1565C0",
+  },
+  newReportedBadge: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#2196F3",
+    marginTop: 5,
+  },
+  newIncidentReportNotification: {
+    backgroundColor: "#ffebee",
+    borderLeftWidth: 4,
+    borderLeftColor: "#D32F2F",
+  },
+  newIncidentReportTitle: {
+    fontWeight: "bold",
+    color: "#C62828",
+  },
+  newIncidentReportBadge: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#D32F2F",
+    marginTop: 5,
+  },
+  newCommunityAlertNotification: {
+    backgroundColor: "#fffbe6",
+    borderLeftWidth: 4,
+    borderLeftColor: "#FFC107",
+  },
+  newCommunityAlertTitle: {
+    fontWeight: "bold",
+    color: "#FFA000",
+  },
+  newCommunityAlertBadge: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#FFC107",
+    marginTop: 5,
+  },
 });
 
 export default Notifications;

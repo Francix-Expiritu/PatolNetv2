@@ -1,18 +1,20 @@
+// TimeIn.tsx
 import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
   StyleSheet,
-  TextInput,
   TouchableOpacity,
   Alert,
   ActivityIndicator,
   ScrollView,
   Animated,
+  Platform,
 } from "react-native";
 import { useRoute, RouteProp, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 import type { RootStackParamList } from "./app";
 import { BASE_URL } from "../../config";
 
@@ -38,7 +40,7 @@ interface UserTimeStatus {
   };
   currentTime: string;
   hasTimeInToday: boolean;
-  hasValidTime: boolean; // Add this to use the server's validation
+  hasValidTime: boolean;
   hasTimeOutToday: boolean;
 }
 
@@ -46,7 +48,7 @@ const TanodAttendance: React.FC = () => {
   const route = useRoute<TimeInRouteProp>();
   const navigation = useNavigation<NavigationProp>();
   const username = route.params?.username || "";
-  
+
   const [currentTime, setCurrentTime] = useState("");
   const [currentDate, setCurrentDate] = useState("");
   const [userStatus, setUserStatus] = useState<UserTimeStatus | null>(null);
@@ -80,17 +82,17 @@ const TanodAttendance: React.FC = () => {
   useEffect(() => {
     const updateDateTime = () => {
       const now = new Date();
-      const timeString = now.toLocaleTimeString('en-US', {
+      const timeString = now.toLocaleTimeString("en-US", {
         hour12: true,
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
       });
-      const dateString = now.toLocaleDateString('en-US', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
+      const dateString = now.toLocaleDateString("en-US", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
       });
       setCurrentTime(timeString);
       setCurrentDate(dateString);
@@ -111,7 +113,7 @@ const TanodAttendance: React.FC = () => {
       setLoading(true);
       const response = await fetch(`${BASE_URL}/api/user-time-status/${username}`);
       const data = await response.json();
-      
+
       if (response.ok) {
         setUserStatus(data);
       } else {
@@ -125,99 +127,257 @@ const TanodAttendance: React.FC = () => {
     }
   };
 
-  const handleTimeRecord = async (action: 'TIME-IN' | 'TIME-OUT') => {
+  // Original time-record call (kept for compatibility)
+  const handleTimeRecord = async (action: "TIME-IN" | "TIME-OUT", extra?: { photo?: string }) => {
     if (submitting) return;
 
     // Validation checks
-    if (action === 'TIME-IN' && userStatus?.hasTimeInToday) {
+    if (action === "TIME-IN" && userStatus?.hasTimeInToday) {
       Alert.alert("Already On Duty", "You are already on duty today. Please time out first if you need to leave.");
       return;
     }
 
-    if (action === 'TIME-OUT' && !userStatus?.hasTimeInToday) {
+    if (action === "TIME-OUT" && !userStatus?.hasTimeInToday) {
       Alert.alert("Not On Duty", "You need to time in first before you can end your shift.");
       return;
     }
 
-    if (action === 'TIME-OUT' && userStatus?.hasTimeOutToday) {
+    if (action === "TIME-OUT" && userStatus?.hasTimeOutToday) {
       Alert.alert("Shift Ended", "Your shift has already ended for today.");
       return;
     }
 
-    const currentTimeFormatted = new Date().toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: true
+    try {
+      setSubmitting(true);
+
+      const bodyPayload: any = {
+        user: username,
+        action,
+      };
+      if (extra?.photo) bodyPayload.photo = extra.photo;
+
+      const response = await fetch(`${BASE_URL}/api/time-record`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(bodyPayload),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        const successMessage =
+          action === "TIME-IN"
+            ? `Welcome to your shift! You are now ON DUTY as of ${new Date(data.time).toLocaleTimeString()}`
+            : `Shift ended successfully. You are now OFF DUTY as of ${new Date(data.time).toLocaleTimeString()}`;
+
+        Alert.alert("Success", successMessage, [{ text: "OK", onPress: () => fetchUserTimeStatus() }]);
+      } else {
+        Alert.alert("Error", data.message || `Failed to record ${action}`);
+      }
+    } catch (error) {
+      console.error("Error recording time:", error);
+      Alert.alert("Error", "Failed to connect to server");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // NEW: Request camera permission (expo-image-picker)
+  const requestCameraPermission = async () => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      return status === "granted";
+    } catch (error) {
+      console.error("Permission error:", error);
+      return false;
+    }
+  };
+
+  // NEW: Launch camera to capture photo
+  const openCamera = async (): Promise<string | null> => {
+    try {
+      if (Platform.OS !== "web") {
+        const granted = await requestCameraPermission();
+        if (!granted) {
+          Alert.alert("Permission Needed", "Camera access is required to take a picture.");
+          return null;
+        }
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 0.6,
+      });
+
+      // expo-image-picker v14+ returns result.assets
+      const uri = (result as any).assets?.[0]?.uri ?? (result as any).uri ?? null;
+
+      if (!uri || (result as any).cancelled === true) {
+        return null;
+      }
+      return uri;
+    } catch (error) {
+      console.error("Camera error:", error);
+      Alert.alert("Error", "Could not open camera.");
+      return null;
+    }
+  };
+
+  // NEW: Upload photo to server - returns filename or null
+  const uploadPhoto = async (uri: string, action: "TIME-IN" | "TIME-OUT") => {
+    try {
+      const formData = new FormData();
+      // For React Native, the name/type must be provided
+      const filename = uri.split("/").pop() || `${username}_${Date.now()}.jpg`;
+      const match = /\.(\w+)$/.exec(filename);
+      const ext = match ? match[1] : "jpg";
+      const mimeType = ext === "png" ? "image/png" : "image/jpeg";
+
+      // @ts-ignore - FormData append with file object
+      formData.append("photo", {
+        uri,
+        name: filename,
+        type: mimeType,
+      });
+      formData.append("username", username);
+      formData.append("action", action);
+
+      const resp = await fetch(`${BASE_URL}/api/upload-time-photo`, {
+        method: "POST",
+        // Important: do NOT set Content-Type; let fetch set the multipart boundary
+        body: formData,
+      });
+
+      const data = await resp.json();
+      if (resp.ok && data.success) {
+        return data.filename || data.file || filename;
+      } else {
+        console.error("Upload failed response:", data);
+        Alert.alert("Upload Failed", data.message || "Could not upload picture.");
+        return null;
+      }
+    } catch (error) {
+      console.error("Upload error:", error);
+      Alert.alert("Upload Error", "Failed to upload picture. Check your connection.");
+      return null;
+    }
+  };
+
+  // NEW: Flow — user taps START SHIFT -> show confirm -> on Confirm open camera -> upload -> record
+  const handleTimeInPress = async () => {
+    if (submitting) return;
+    if (userStatus?.hasTimeInToday) {
+      Alert.alert("Already On Duty", "You are already on duty today. Please time out first if you need to leave.");
+      return;
+    }
+    const currentTimeFormatted = new Date().toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: true,
     });
 
-    const actionText = action === 'TIME-IN' ? 'start your shift' : 'end your shift';
-    const statusText = action === 'TIME-IN' ? 'ON DUTY' : 'OFF DUTY';
-
     Alert.alert(
-      `Confirm ${action}`,
-      `Are you sure you want to ${actionText}?\n\nTime: ${currentTimeFormatted}\nStatus will change to: ${statusText}`,
+      "Confirm TIME-IN",
+      `Are you sure you want to start your shift?\n\nTime: ${currentTimeFormatted}\nStatus will change to: ON DUTY`,
       [
         { text: "Cancel", style: "cancel" },
         {
           text: "Confirm",
           style: "default",
           onPress: async () => {
-            try {
-              setSubmitting(true);
-              
-              const response = await fetch(`${BASE_URL}/api/time-record`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  user: username,
-                  action: action
-                }),
-              });
-
-              const data = await response.json();
-
-              if (response.ok) {
-                const successMessage = action === 'TIME-IN' 
-                  ? `Welcome to your shift! You are now ON DUTY as of ${new Date(data.time).toLocaleTimeString()}`
-                  : `Shift ended successfully. You are now OFF DUTY as of ${new Date(data.time).toLocaleTimeString()}`;
-
-                Alert.alert(
-                  "Success", 
-                  successMessage,
-                  [{ text: "OK", onPress: () => fetchUserTimeStatus() }]
-                );
-              } else {
-                Alert.alert("Error", data.message || `Failed to record ${action}`);
-              }
-            } catch (error) {
-              console.error("Error recording time:", error);
-              Alert.alert("Error", "Failed to connect to server");
-            } finally {
-              setSubmitting(false);
+            // After confirming, open camera
+            const uri = await openCamera();
+            if (!uri) {
+              Alert.alert("Cancelled", "You must take a picture before timing in.");
+              return;
             }
-          }
-        }
+
+            setSubmitting(true);
+            const uploadedFilename = await uploadPhoto(uri, "TIME-IN");
+            if (!uploadedFilename) {
+              setSubmitting(false);
+              return;
+            }
+
+            // After successful upload, record time with photo filename
+            await handleTimeRecord("TIME-IN", { photo: uploadedFilename });
+            // handleTimeRecord will call fetchUserTimeStatus on success via the OK button press
+            setSubmitting(false);
+          },
+        },
       ]
     );
   };
 
-  // The server now sends a pre-formatted string with month, day, and time, so we just display it.
+  // NEW: Flow for TIME-OUT (same as TIME-IN but with TIME-OUT checks)
+  const handleTimeOutPress = async () => {
+    if (submitting) return;
+    if (!userStatus?.hasTimeInToday) {
+      Alert.alert("Not On Duty", "You need to time in first before you can end your shift.");
+      return;
+    }
+    if (userStatus?.hasTimeOutToday) {
+      Alert.alert("Shift Ended", "Your shift has already ended for today.");
+      return;
+    }
+
+    const currentTimeFormatted = new Date().toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: true,
+    });
+
+    Alert.alert(
+      "Confirm TIME-OUT",
+      `Are you sure you want to end your shift?\n\nTime: ${currentTimeFormatted}\nStatus will change to: OFF DUTY`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Confirm",
+          style: "default",
+          onPress: async () => {
+            // After confirming, open camera
+            const uri = await openCamera();
+            if (!uri) {
+              Alert.alert("Cancelled", "You must take a picture before timing out.");
+              return;
+            }
+
+            setSubmitting(true);
+            const uploadedFilename = await uploadPhoto(uri, "TIME-OUT");
+            if (!uploadedFilename) {
+              setSubmitting(false);
+              return;
+            }
+
+            // After successful upload, record time with photo filename
+            await handleTimeRecord("TIME-OUT", { photo: uploadedFilename });
+            setSubmitting(false);
+          },
+        },
+      ]
+    );
+  };
+
+  // Format helpers
   const formatScheduleTime = (scheduleString: string | null) => {
     if (!scheduleString || scheduleString === "No schedule assigned") {
       return "No schedule assigned";
     }
-    return scheduleString; // e.g., "December - Monday, 9:00 AM - 5:00 PM"
+    return scheduleString;
   };
 
   const formatLogTime = (timeString: string) => {
     if (!timeString) return "N/A";
     try {
       const date = new Date(timeString);
-      return date.toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true
+      return date.toLocaleTimeString("en-US", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
       });
     } catch (error) {
       return "Invalid time";
@@ -230,24 +390,24 @@ const TanodAttendance: React.FC = () => {
 
     if (hasTimeIn && !hasTimeOut) {
       return {
-        text: 'ON DUTY',
-        color: '#28a745',
-        bgColor: '#d4edda',
-        icon: 'shield-checkmark' as keyof typeof Ionicons.glyphMap
+        text: "ON DUTY",
+        color: "#28a745",
+        bgColor: "#d4edda",
+        icon: "shield-checkmark" as keyof typeof Ionicons.glyphMap,
       };
     } else if (hasTimeOut) {
       return {
-        text: 'SHIFT ENDED',
-        color: '#6c757d',
-        bgColor: '#f8f9fa',
-        icon: 'shield-outline' as keyof typeof Ionicons.glyphMap
+        text: "SHIFT ENDED",
+        color: "#6c757d",
+        bgColor: "#f8f9fa",
+        icon: "shield-outline" as keyof typeof Ionicons.glyphMap,
       };
     } else {
       return {
-        text: 'OFF DUTY',
-        color: '#dc3545',
-        bgColor: '#f8d7da',
-        icon: 'shield-outline' as keyof typeof Ionicons.glyphMap
+        text: "OFF DUTY",
+        color: "#dc3545",
+        bgColor: "#f8d7da",
+        icon: "shield-outline" as keyof typeof Ionicons.glyphMap,
       };
     }
   };
@@ -266,7 +426,7 @@ const TanodAttendance: React.FC = () => {
           <Text style={styles.headerTitle}>Tanod Attendance</Text>
           <View style={styles.headerPlaceholder} />
         </View>
-        
+
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#007bff" />
           <Text style={styles.loadingText}>Loading attendance data...</Text>
@@ -296,29 +456,28 @@ const TanodAttendance: React.FC = () => {
         </View>
 
         {/* Status Card */}
-        <Animated.View style={[
-          styles.statusCard,
-          { backgroundColor: statusInfo.bgColor },
-          userStatus?.hasTimeInToday && !userStatus?.hasTimeOutToday && {
-            transform: [{ scale: pulseAnim }]
-          }
-        ]}>
+        <Animated.View
+          style={[
+            styles.statusCard,
+            { backgroundColor: statusInfo.bgColor },
+            userStatus?.hasTimeInToday &&
+              !userStatus?.hasTimeOutToday && {
+                transform: [{ scale: pulseAnim }],
+              },
+          ]}
+        >
           <View style={styles.statusHeader}>
             <Ionicons name={statusInfo.icon} size={28} color={statusInfo.color} />
             <View style={styles.statusTextContainer}>
               <Text style={styles.statusLabel}>Current Status</Text>
-              <Text style={[styles.statusText, { color: statusInfo.color }]}>
-                {statusInfo.text}
-              </Text>
+              <Text style={[styles.statusText, { color: statusInfo.color }]}>{statusInfo.text}</Text>
             </View>
           </View>
-          
+
           {userStatus?.schedule?.scheduledTime && (
             <View style={styles.scheduleInfo}>
               <Ionicons name="calendar-outline" size={16} color="#666" />
-              <Text style={styles.scheduleText}>
-                Scheduled: {formatScheduleTime(userStatus.schedule.scheduledTime)}
-              </Text>
+              <Text style={styles.scheduleText}>Scheduled: {formatScheduleTime(userStatus.schedule.scheduledTime)}</Text>
             </View>
           )}
         </Animated.View>
@@ -327,7 +486,7 @@ const TanodAttendance: React.FC = () => {
         {(userStatus?.logs?.timeIn || userStatus?.logs?.timeOut) && (
           <View style={styles.recordsCard}>
             <Text style={styles.recordsTitle}>Today's Records</Text>
-            
+
             {userStatus?.logs.timeIn && (
               <View style={styles.recordItem}>
                 <View style={styles.recordIcon}>
@@ -335,14 +494,12 @@ const TanodAttendance: React.FC = () => {
                 </View>
                 <View style={styles.recordDetails}>
                   <Text style={styles.recordAction}>TIME IN</Text>
-                  <Text style={styles.recordTime}>
-                    {formatLogTime(userStatus.logs.timeIn.time)}
-                  </Text>
+                  <Text style={styles.recordTime}>{formatLogTime(userStatus.logs.timeIn.time)}</Text>
                 </View>
                 <Ionicons name="checkmark-circle" size={20} color="#28a745" />
               </View>
             )}
-            
+
             {userStatus?.logs.timeOut && (
               <View style={styles.recordItem}>
                 <View style={styles.recordIcon}>
@@ -350,9 +507,7 @@ const TanodAttendance: React.FC = () => {
                 </View>
                 <View style={styles.recordDetails}>
                   <Text style={styles.recordAction}>TIME OUT</Text>
-                  <Text style={styles.recordTime}>
-                    {formatLogTime(userStatus.logs.timeOut.time)}
-                  </Text>
+                  <Text style={styles.recordTime}>{formatLogTime(userStatus.logs.timeOut.time)}</Text>
                 </View>
                 <Ionicons name="checkmark-circle" size={20} color="#dc3545" />
               </View>
@@ -364,12 +519,8 @@ const TanodAttendance: React.FC = () => {
         <View style={styles.actionSection}>
           {/* Time In Button */}
           <TouchableOpacity
-            style={[
-              styles.actionButton,
-              styles.timeInButton,
-              !canTimeIn && styles.actionButtonDisabled
-            ]}
-            onPress={() => handleTimeRecord('TIME-IN')}
+            style={[styles.actionButton, styles.timeInButton, !canTimeIn && styles.actionButtonDisabled]}
+            onPress={handleTimeInPress}
             disabled={!canTimeIn || submitting}
           >
             <View style={styles.actionButtonContent}>
@@ -377,21 +528,11 @@ const TanodAttendance: React.FC = () => {
                 <ActivityIndicator size="small" color="#fff" />
               ) : (
                 <>
-                  <Ionicons 
-                    name={canTimeIn ? "enter-outline" : "checkmark-circle"} 
-                    size={24} 
-                    color={canTimeIn ? "#fff" : "#28a745"} 
-                  /> 
-                  <Text style={[
-                    styles.actionButtonText,
-                    !canTimeIn && styles.actionButtonTextDisabled,
-                  ]}>
+                  <Ionicons name={canTimeIn ? "enter-outline" : "checkmark-circle"} size={24} color={canTimeIn ? "#fff" : "#28a745"} />
+                  <Text style={[styles.actionButtonText, !canTimeIn && styles.actionButtonTextDisabled]}>
                     {canTimeIn ? "START SHIFT" : "ALREADY ON DUTY"}
                   </Text>
-                  <Text style={[
-                    styles.actionButtonSubtext,
-                    !canTimeIn && styles.actionButtonTextDisabled
-                  ]}>
+                  <Text style={[styles.actionButtonSubtext, !canTimeIn && styles.actionButtonTextDisabled]}>
                     {canTimeIn ? "Tap to begin your duty" : "Shift has started"}
                   </Text>
                 </>
@@ -401,12 +542,8 @@ const TanodAttendance: React.FC = () => {
 
           {/* Time Out Button */}
           <TouchableOpacity
-            style={[
-              styles.actionButton,
-              styles.timeOutButton,
-              !canTimeOut && styles.actionButtonDisabled
-            ]}
-            onPress={() => handleTimeRecord('TIME-OUT')}
+            style={[styles.actionButton, styles.timeOutButton, !canTimeOut && styles.actionButtonDisabled]}
+            onPress={handleTimeOutPress}
             disabled={!canTimeOut || submitting}
           >
             <View style={styles.actionButtonContent}>
@@ -414,23 +551,16 @@ const TanodAttendance: React.FC = () => {
                 <ActivityIndicator size="small" color="#fff" />
               ) : (
                 <>
-                  <Ionicons 
-                    name={canTimeOut ? "exit-outline" : userStatus?.hasTimeOutToday ? "checkmark-circle" : "close-circle"} 
-                    size={24} 
-                    color={canTimeOut ? "#fff" : userStatus?.hasTimeOutToday ? "#28a745" : "#dc3545"} 
+                  <Ionicons
+                    name={canTimeOut ? "exit-outline" : userStatus?.hasTimeOutToday ? "checkmark-circle" : "close-circle"}
+                    size={24}
+                    color={canTimeOut ? "#fff" : userStatus?.hasTimeOutToday ? "#28a745" : "#dc3545"}
                   />
-                  <Text style={[
-                    styles.actionButtonText,
-                    !canTimeOut && styles.actionButtonTextDisabled
-                  ]}>
+                  <Text style={[styles.actionButtonText, !canTimeOut && styles.actionButtonTextDisabled]}>
                     {canTimeOut ? "END SHIFT" : userStatus?.hasTimeOutToday ? "SHIFT ENDED" : "NOT AVAILABLE"}
                   </Text>
-                  <Text style={[
-                    styles.actionButtonSubtext,
-                    !canTimeOut && styles.actionButtonTextDisabled
-                  ]}>
-                    {canTimeOut ? "Tap to end your duty" : 
-                     userStatus?.hasTimeOutToday ? "Duty completed" : "Time in first"}
+                  <Text style={[styles.actionButtonSubtext, !canTimeOut && styles.actionButtonTextDisabled]}>
+                    {canTimeOut ? "Tap to end your duty" : userStatus?.hasTimeOutToday ? "Duty completed" : "Time in first"}
                   </Text>
                 </>
               )}
@@ -443,21 +573,15 @@ const TanodAttendance: React.FC = () => {
           <Text style={styles.instructionsTitle}>Instructions</Text>
           <View style={styles.instructionItem}>
             <Ionicons name="information-circle" size={16} color="#007bff" />
-            <Text style={styles.instructionText}>
-              Tap "START SHIFT" when you begin your duty
-            </Text>
+            <Text style={styles.instructionText}>Tap "START SHIFT" when you begin your duty</Text>
           </View>
           <View style={styles.instructionItem}>
             <Ionicons name="information-circle" size={16} color="#007bff" />
-            <Text style={styles.instructionText}>
-              Tap "END SHIFT" when your duty is complete
-            </Text>
+            <Text style={styles.instructionText}>Tap "END SHIFT" when your duty is complete</Text>
           </View>
           <View style={styles.instructionItem}>
             <Ionicons name="information-circle" size={16} color="#007bff" />
-            <Text style={styles.instructionText}>
-              Your attendance is automatically recorded
-            </Text>
+            <Text style={styles.instructionText}>A selfie photo will be required before timing in and timing out</Text>
           </View>
         </View>
       </ScrollView>

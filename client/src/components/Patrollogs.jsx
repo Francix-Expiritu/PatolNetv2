@@ -301,7 +301,7 @@ const PatrolLogs = () => {
                   {/* For print, show all filtered logs instead of paginated ones */}
                   {(window.matchMedia && window.matchMedia('print').matches ? filteredLogs : currentLogs).length > 0 ? (
                     (window.matchMedia && window.matchMedia('print').matches ? filteredLogs : currentLogs).map((log) => (
-                      <tr key={log.id}>
+                      <tr key={log.id} onClick={() => handleRowClick(log)}>
                         <td className="font-medium">#{log.displayId}</td>
                         <td>{log.tanod}</td>
                         <td>

@@ -13,7 +13,7 @@ import Notifications from './Notifications';
 import IncidentReportList from './IncidentReportList';
 
 // Define the IncidentReport interface to match what's used in NavBar
-interface IncidentReport {
+export interface IncidentReport {
   id: number;
   type: string;
   reported_by: string;

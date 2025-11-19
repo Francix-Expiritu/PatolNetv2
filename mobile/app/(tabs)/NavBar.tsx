@@ -1,19 +1,20 @@
 import { BASE_URL } from "../../config";
 // components/NavBar.tsx - Fixed incident notification system
 import React, { useState, useRef, useEffect } from "react";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   Dimensions,
+  Modal,
   Animated,
   TouchableWithoutFeedback,
   Image,
   Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "./app";
 import axios from "axios";
@@ -70,6 +71,8 @@ const NavBar: React.FC<NavBarProps> = ({ username, userImage, userRole }) => {
   const [isPatrolLogInitialized, setIsPatrolLogInitialized] = useState(false);
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [selectedIncident, setSelectedIncident] = useState<IncidentReport | null>(null);
   const [filterStatus, setFilterStatus] = useState<'all' | 'assigned' | 'resolved'>('all');
 
   // Calculate total notification count from all sources - FIXED
@@ -183,15 +186,15 @@ const NavBar: React.FC<NavBarProps> = ({ username, userImage, userRole }) => {
         // If it is initialized and there are genuinely new logs, show an alert.
         else if (isInitialized && newLogs.length > 0) {
           console.log(`New user log detected! Alerting for: ${newLogs[0].ACTION}`);
-          const notificationMessage = getLogDisplayText(newLogs[0]);
-          Alert.alert(
-            "New Schedule Logged",
-            notificationMessage,
-            [
-              { text: "View All", onPress: () => handleNotificationPress() },
-              { text: "Dismiss", style: "cancel" }
-            ]
-          );
+          // const notificationMessage = getLogDisplayText(newLogs[0]);
+          // Alert.alert(
+          //   "New Schedule Logged",
+          //   notificationMessage,
+          //   [
+          //     { text: "View All", onPress: () => handleNotificationPress() },
+          //     { text: "Dismiss", style: "cancel" }
+          //   ]
+          // );
           // Mark as seen immediately to prevent re-alerting
           saveState(newLogs[0].ID, undefined, undefined, undefined, undefined);
         }
@@ -225,14 +228,14 @@ const NavBar: React.FC<NavBarProps> = ({ username, userImage, userRole }) => {
         // If it is initialized and there are genuinely new logs, show an alert.
         else if (isResidentLogInitialized && newLogs.length > 0) {
           console.log(`New resident log detected! Alerting for: ${newLogs[0].ACTION}`);
-          Alert.alert(
-            "Community Alert",
-            newLogs[0].ACTION,
-            [
-              { text: "View All", onPress: () => handleNotificationPress() },
-              { text: "Dismiss", style: "cancel" }
-            ]
-          );
+          // Alert.alert(
+          //   "Community Alert",
+          //   newLogs[0].ACTION,
+          //   [
+          //     { text: "View All", onPress: () => handleNotificationPress() },
+          //     { text: "Dismiss", style: "cancel" }
+          //   ]
+          // );
           // Mark as seen immediately to prevent re-alerting
           saveState(undefined, undefined, undefined, newLogs[0].ID, undefined);
         }
@@ -265,14 +268,14 @@ const NavBar: React.FC<NavBarProps> = ({ username, userImage, userRole }) => {
         // If it is initialized and there are genuinely new logs, show an alert.
         else if (isInitialized && newLogs.length > 0) {
           console.log(`New patrol log detected! Alerting for: ${newLogs[0].ACTION}`);
-          Alert.alert(
-            "New Incident Report",
-            newLogs[0].ACTION,
-            [
-              { text: "View All", onPress: () => handleNotificationPress() },
-              { text: "Dismiss", style: "cancel" }
-            ]
-          );
+          // Alert.alert(
+          //   "New Incident Report",
+          //   newLogs[0].ACTION,
+          //   [
+          //     { text: "View All", onPress: () => handleNotificationPress() },
+          //     { text: "Dismiss", style: "cancel" }
+          //   ]
+          // );
           // Mark as seen immediately to prevent re-alerting
           saveState(undefined, undefined, undefined, undefined, newLogs[0].ID);
         }
@@ -334,15 +337,15 @@ const NavBar: React.FC<NavBarProps> = ({ username, userImage, userRole }) => {
             console.log('New unresolved incident assignment detected! Count:', newUnresolvedIncidents.length);
             
             // Show alert for new incident assignment
-            const incidentMessage = getIncidentDisplayText(latestIncident);
-            Alert.alert(
-              "You've Been Assigned",
-              incidentMessage,
-              [
-                { text: "View All", onPress: () => handleNotificationPress() },
-                { text: "Dismiss", style: "cancel" }
-              ]
-            );
+            // const incidentMessage = getIncidentDisplayText(latestIncident);
+            // Alert.alert(
+            //   "You've Been Assigned",
+            //   incidentMessage,
+            //   [
+            //     { text: "View All", onPress: () => handleNotificationPress() },
+            //     { text: "Dismiss", style: "cancel" }
+            //   ]
+            // );
           }
         } else if (isIncidentInitialized) {
           // Update notifications list even if no new incidents
@@ -507,6 +510,8 @@ Status: ${incident.status}`;
     setUnreadIncidentIds(emptySet);
     saveState(undefined, undefined, emptySet, undefined, undefined);
   };
+  
+
 
   // Polling effect for both logs and incidents
   useEffect(() => {
@@ -548,9 +553,7 @@ Status: ${incident.status}`;
   // Handle notification press to navigate to notifications page
   const handleNotificationPress = () => {
     // Mark notifications as read when navigating to notifications page
-    markNotificationsAsRead();
-    
-    // Navigate to notifications page with both logs and incidents
+
     navigation.navigate("Notifications", { 
       username: username ?? "",
       incidentNotifications: incidentNotifications,
@@ -561,6 +564,11 @@ Status: ${incident.status}`;
   const closeMenus = () => {
     setUserMenuVisible(false);
     setSidebarVisible(false);
+  };
+
+  const closeModal = () => {
+    setIsModalVisible(false);
+    setSelectedIncident(null);
   };
 
   return (
@@ -678,6 +686,49 @@ Status: ${incident.status}`;
   );
 };
 
+interface IncidentDetailsModalProps {
+  isVisible: boolean;
+  incident: IncidentReport | null;
+  onClose: () => void;
+  onResolve: () => void;
+}
+
+const IncidentDetailsModal: React.FC<IncidentDetailsModalProps> = ({ isVisible, incident, onClose, onResolve }) => {
+  if (!incident) return null;
+
+  return (
+    <Modal
+      animationType="slide"
+      transparent={true}
+      visible={isVisible}
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContainer}>
+          <Text style={styles.modalTitle}>Incident Details</Text>
+          <Text>Type: {incident.type}</Text>
+          <Text>Reported by: {incident.reported_by}</Text>
+          <Text>Location: {incident.location}</Text>
+          <Text>Status: {incident.status}</Text>
+          <View style={styles.modalButtons}>
+            <TouchableOpacity style={styles.modalButton} onPress={onClose}>
+              <Text style={styles.modalButtonText}>Close</Text>
+            </TouchableOpacity>
+            {incident.status !== 'Resolved' && (
+              <TouchableOpacity
+                style={[styles.modalButton, styles.resolveButton]}
+                onPress={onResolve}
+              >
+                <Text style={styles.modalButtonText}>Mark as Resolved</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
 const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
@@ -781,6 +832,44 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     borderWidth: 1,
     borderColor: '#fff',
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContainer: {
+    backgroundColor: 'white',
+    borderRadius: 10,
+    padding: 20,
+    width: '80%',
+    maxWidth: 400,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 15,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 20,
+  },
+  modalButton: {
+    backgroundColor: '#ddd',
+    padding: 10,
+    borderRadius: 5,
+  },
+  modalButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  resolveButton: {
+    backgroundColor: '#4CAF50',
+  },
+  resolveButtonText: {
+    color: 'white',
   },
 });
 

@@ -14,7 +14,10 @@ export default {
       bundleIdentifier: "com.patrolnet.mobile" // ✅ required by EAS
     },
     android: {
-      usesCleartextTraffic: true,
+      // This is the crucial setting that allows HTTP traffic for network requests,
+      // which is often required for local development and can prevent "Network Error"
+      // on file uploads.
+      usesCleartextTraffic: true, 
       adaptiveIcon: {
         foregroundImage: './assets/images/new-icon.png',
         backgroundColor: '#ffffff',

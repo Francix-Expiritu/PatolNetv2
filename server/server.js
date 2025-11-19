@@ -21,6 +21,13 @@ if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir);
 }
 
+// Create a specific folder for resolution images
+const resolutionsDir = path.join(__dirname, "uploads/resolutions");
+if (!fs.existsSync(resolutionsDir)) {
+  fs.mkdirSync(resolutionsDir, { recursive: true });
+  console.log("✅ Created 'uploads/resolutions' directory.");
+}
+
 // Multer config for file upload
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -637,10 +644,10 @@ app.post("/api/incidents", upload.single("image"), (req, res) => {
 
             tanodResults.forEach(tanod => {
               const insertLogSql = `
-                INSERT INTO logs_patrol (USER, TIME, ACTION, LOCATION)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO logs_patrol (USER, TIME, ACTION, LOCATION, incident_id)
+                VALUES (?, ?, ?, ?, ?)
               `;
-              db.query(insertLogSql, [tanod.USER, notificationTime, notificationAction, notificationLocation], (logErr) => {
+              db.query(insertLogSql, [tanod.USER, notificationTime, notificationAction, notificationLocation, incidentId], (logErr) => {
                 if (logErr) {
                   console.error(`❌ SQL error inserting notification for Tanod ${tanod.USER}:`, logErr);
                 } else {
@@ -796,7 +803,7 @@ app.put("/api/incidents/:id/resolve", (req, res) => {
     
     if (result.affectedRows === 0) {
       return res.status(404).json({
-        success: false,
+        success: false, 
         message: "Incident not found"
       });
     }
@@ -804,7 +811,7 @@ app.put("/api/incidents/:id/resolve", (req, res) => {
     // Log the resolution action
     if (resolved_by) {
       const logSql = `
-        INSERT INTO logs_patrol (USER, TIME, ACTION, LOCATION)
+        INSERT INTO logs_patrol (USER, TIME, ACTION, LOCATION) 
         VALUES (?, ?, ?, ?)
       `;
       
@@ -827,6 +834,14 @@ app.put("/api/incidents/:id/resolve", (req, res) => {
       });
     }
     
+    // Automatically update the incident_report status to 'Resolved'
+    const updateIncidentSql = `UPDATE incident_report SET status = 'Resolved' WHERE id = ?`;
+    db.query(updateIncidentSql, [incidentId], (updateErr, updateResult) => {
+      if (updateErr) {
+        console.error("❌ SQL error updating incident_report status:", updateErr);
+      }
+    });
+
     res.json({
       success: true,
       message: "Incident marked as resolved successfully",
@@ -866,8 +881,8 @@ app.put("/api/incidents/:id/assign", (req, res) => {
     
     // Log the assignment action
     const logSql = `
-      INSERT INTO logs_patrol (USER, TIME, ACTION, LOCATION)
-      VALUES (?, ?, ?, ?)
+      INSERT INTO logs_patrol (USER, TIME, ACTION, LOCATION, incident_id)
+      VALUES (?, ?, ?, ?, ?)
     `;
     
     // Get incident details for logging
@@ -879,7 +894,8 @@ app.put("/api/incidents/:id/assign", (req, res) => {
           tanod_id,
           getGMT8Time(),
           `Assigned to Incident: ${incident.incident_type}`,
-          incident.location
+          incident.location,
+          incidentId // ADDED incidentId HERE
         ], (logErr) => {
           if (logErr) {
             console.error("Error logging incident assignment:", logErr);
@@ -1782,9 +1798,33 @@ app.get("/api/user-time-status/:username", async (req, res) => {
   }
 });
 
+// NEW: Endpoint to handle time-in/time-out photo uploads
+app.post("/api/upload-time-photo", upload.single("photo"), (req, res) => {
+  // The 'upload.single("photo")' middleware handles the file saving.
+  // 'photo' must match the key used in the FormData from the mobile app.
+
+  if (!req.file) {
+    // This error occurs if no file was part of the request.
+    console.error("❌ Upload Error: No file received.");
+    return res.status(400).json({ success: false, message: "No photo file was uploaded." });
+  }
+
+  // If we get here, the file was successfully uploaded by multer.
+  // The unique filename is available in req.file.filename.
+  const filename = req.file.filename;
+  console.log(`✅ Photo uploaded successfully: ${filename}`);
+
+  // Send a success response back to the mobile app with the filename.
+  res.json({
+    success: true,
+    message: "Photo uploaded successfully.",
+    filename: filename, // The mobile app will use this filename
+  });
+});
+
 // Also modify the endpoint to not update schedule STATUS:
 app.post("/api/time-record", async (req, res) => {
-  const { user, action } = req.body;
+  const { user, action, photo } = req.body; // 1. Destructure the 'photo' from the request body
   
   if (!user || !action) {
     return res.status(400).json({ 
@@ -1857,16 +1897,19 @@ app.post("/api/time-record", async (req, res) => {
 
     if (existingLog) {
       // Update existing log with ACTION matching the new status
+      // 2. Add the photo column to the UPDATE query
+      const photoColumn = action === 'TIME-IN' ? 'time_in_photo' : 'time_out_photo';
       const updateSql = `
         UPDATE logs 
-        SET ${action === 'TIME-IN' ? 'TIME_IN = ?' : 'TIME_OUT = ?'}, ACTION = ?
+        SET ${action === 'TIME-IN' ? 'TIME_IN = ?' : 'TIME_OUT = ?'}, ACTION = ?, ${photoColumn} = ?
         WHERE USER = ? AND DATE(TIME) = ?
       `;
       
       await new Promise((resolve, reject) => {
         db.query(
           updateSql, 
-          [currentTime, logAction, user, today], 
+          // 3. Add the photo filename to the query parameters
+          [currentTime, logAction, photo, user, today],
           (err, result) => {
             if (err) reject(err);
             else resolve(result);
@@ -1875,15 +1918,18 @@ app.post("/api/time-record", async (req, res) => {
       });
     } else {
       // Insert new log with ACTION matching the new status
+      // 4. Add the photo column to the INSERT query
+      const photoColumn = action === 'TIME-IN' ? 'time_in_photo' : 'time_out_photo';
       const insertSql = `
-        INSERT INTO logs (USER, TIME, ${action === 'TIME-IN' ? 'TIME_IN' : 'TIME_OUT'}, ACTION)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO logs (USER, TIME, ${action === 'TIME-IN' ? 'TIME_IN' : 'TIME_OUT'}, ACTION, ${photoColumn})
+        VALUES (?, ?, ?, ?, ?)
       `;
       
       await new Promise((resolve, reject) => {
         db.query(
           insertSql, 
-          [user, currentTime, currentTime, logAction], 
+          // 5. Add the photo filename to the query parameters
+          [user, currentTime, currentTime, logAction, photo],
           (err, result) => {
             if (err) reject(err);
             else resolve(result);
@@ -2234,7 +2280,7 @@ app.delete("/api/announcements/:id", (req, res) => {
 });
 
 // Add this API endpoint to your backend (paste.txt)
-app.get("/api/logs_patrol", (req, res) => {
+app.get("/api/logs_patrol", (req, res) => { // General fetch for all patrol logs
   const sql = "SELECT * FROM logs_patrol ORDER BY TIME DESC";
   
   db.query(sql, (err, results) => {
@@ -2592,6 +2638,124 @@ app.post("/api/incident_types", (req, res) => {
     });
   });
 });
+
+// --- Multer Configuration for Resolution Image Uploads ---
+// This sets up a specific storage location for resolution images.
+const resolutionStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    // The directory is 'uploads/resolutions/'
+    cb(null, 'uploads/resolutions/'); 
+  },
+  filename: function (req, file, cb) {
+    // Create a unique filename to prevent overwrites
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'resolution-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const uploadResolution = multer({ storage: resolutionStorage });
+
+// NEW ENDPOINT: Resolve a patrol log incident with photo proof
+app.post("/api/patrol-logs/resolve", uploadResolution.single("resolutionImage"), (req, res) => {
+  const { logId, resolved_by } = req.body;
+  console.log(`🔍 Received resolution request for logId: ${logId}, resolved_by: ${resolved_by}`);
+
+  // Check if a file was uploaded
+  if (!req.file) {
+    console.error("❌ Resolve Error: No image file was received.");
+    return res.status(400).json({ success: false, message: 'Resolution image is required.' });
+  }
+  console.log(`🔍 Image file received: ${req.file.filename}`);
+
+  const resolution_image_path = req.file.filename;
+  const resolved_at_time = getGMT8Time();
+
+  // First, check if the patrol log exists and get the incident_id
+  const checkQuery = `SELECT ID, incident_id FROM logs_patrol WHERE ID = ?`;
+  db.query(checkQuery, [logId], (checkErr, checkResults) => {
+    if (checkErr) {
+      console.error("❌ Database error checking patrol log existence:", checkErr);
+      return res.status(500).json({ success: false, message: 'Database error occurred during check.' });
+    }
+
+    if (checkResults.length === 0) {
+      console.warn(`⚠️ Resolve Warning: Patrol log with ID ${logId} not found in DB.`);
+      return res.status(404).json({ success: false, message: 'Patrol log not found.' });
+    }
+
+    const incidentId = checkResults[0].incident_id;
+    console.log(`✅ Patrol log with ID ${logId} found. Linked incident_id: ${incidentId}`);
+
+    // Update the patrol log status to 'Resolved'
+    const updateQuery = `
+      UPDATE logs_patrol 
+      SET 
+        status = 'Resolved', 
+        resolved_by = ?, 
+        resolved_at = ?, 
+        resolution_image_path = ?
+      WHERE ID = ?
+    `;
+
+    db.query(updateQuery, [resolved_by, resolved_at_time, resolution_image_path, logId], (err, result) => {
+      if (err) {
+        console.error("❌ Database error resolving patrol log:", err);
+        return res.status(500).json({ success: false, message: 'Database error occurred.' });
+      }
+
+      if (result.affectedRows === 0) {
+        console.warn(`⚠️ Resolve Warning: Patrol log with ID ${logId} not updated. Affected rows: 0.`);
+        return res.status(404).json({ success: false, message: 'Patrol log not found.' });
+      }
+
+      console.log(`✅ Patrol log ID ${logId} has been resolved by ${resolved_by}.`);
+
+      // Now automatically resolve the main incident report if incident_id exists
+      if (incidentId) {
+        const resolveIncidentSql = `
+          UPDATE incident_report 
+          SET status = 'Resolved', resolved_at = ?, resolved_by = ? 
+          WHERE id = ?
+        `;
+        
+        db.query(resolveIncidentSql, [resolved_at_time, resolved_by, incidentId], (resolveErr, resolveResult) => {
+          if (resolveErr) {
+            console.error(`❌ Error auto-resolving incident report ID ${incidentId}:`, resolveErr);
+            // Return success for patrol log but note the incident update failed
+            return res.status(200).json({ 
+              success: true, 
+              message: 'Patrol log resolved, but incident report update failed.',
+              warning: 'Incident report may need manual update.'
+            });
+          }
+
+          if (resolveResult.affectedRows > 0) {
+            console.log(`✅ Automatically resolved incident report ID ${incidentId}.`);
+            return res.status(200).json({ 
+              success: true, 
+              message: 'Patrol log and corresponding incident report have been resolved successfully.' 
+            });
+          } else {
+            console.warn(`⚠️ Incident report ID ${incidentId} not found or already resolved.`);
+            return res.status(200).json({ 
+              success: true, 
+              message: 'Patrol log resolved successfully.',
+              warning: 'Incident report not found or already resolved.'
+            });
+          }
+        });
+      } else {
+        // No incident_id linked, just return success for the patrol log
+        console.log(`ℹ️ No incident_id linked to patrol log ${logId}.`);
+        return res.status(200).json({ 
+          success: true, 
+          message: 'Patrol log resolved successfully (no linked incident report).' 
+        });
+      }
+    });
+  });
+});
+
 
 // Start server
 const os = require("os");
