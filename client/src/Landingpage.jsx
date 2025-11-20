@@ -1197,13 +1197,10 @@ if (typeof document !== 'undefined') {
     }
     
     ::-webkit-scrollbar-thumb {
-      background: #da2626;
+    
       border-radius: 6px;
     }
     
-    ::-webkit-scrollbar-thumb:hover {
-      background: #b91c1c;
-    }
   `;
   document.head.appendChild(style);
 }

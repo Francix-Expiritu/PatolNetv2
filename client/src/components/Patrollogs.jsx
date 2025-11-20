@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import MainSidebarWrapper from './MainSidebarWrapper';
-import './Patrollogs.css'; // Import the CSS file
+import './Patrollogs.css';
 import { BASE_URL } from '../config';
 import ActivityDetailsModal from './Modals/ActivityDetails';
+
 const PatrolLogs = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [activitiesSearchTerm, setActivitiesSearchTerm] = useState('');
@@ -21,13 +22,7 @@ const PatrolLogs = () => {
   const [selectedActivity, setSelectedActivity] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // Function to truncate location text
-  const truncateLocation = (text, maxLength = 18) => {
-    if (text.length <= maxLength) return text;
-    return text.substring(0, maxLength) + '...';
-  };
-
-  // Function to load logs from the database
+  // Function to load logs from the database (for TANOD SCHEDULE)
   const loadLogs = async () => {
     try {
       setIsLoading(true);
@@ -36,10 +31,9 @@ const PatrolLogs = () => {
       const response = await axios.get(`${BASE_URL}/api/logs`);
       
       if (response.data && Array.isArray(response.data)) {
-        // Transform the logs data for TANOD SCHEDULE table
         const transformedLogs = response.data.map((log, index) => ({
           id: log.ID || index + 1,
-          displayId: 1000 + ((log.ID || index) % 9000), // Deterministic 4-digit ID
+          displayId: 1000 + ((log.ID || index) % 9000),
           tanod: log.USER || 'Unknown',
           timeIn: log.TIME_IN || 'Not specified', 
           timeOut: log.TIME_OUT || 'Not specified',
@@ -47,24 +41,9 @@ const PatrolLogs = () => {
           status: log.ACTION || 'No Action'
         }));
         
-        // Filter activities that have been resolved/completed for PATROL ACTIVITIES table
-        const activities = response.data
-          .filter(log => log.ACTION === 'COMPLETED' || log.ACTION === 'RESOLVED INCIDENT' || log.TIME_OUT)
-          .map((log, index) => ({
-            id: log.ID || index + 1,
-            tanod: log.USER || 'Unknown',
-            displayId: 1000 + ((log.ID || index) % 9000),
-            timeResolved: log.TIME_OUT || log.TIME || 'Not specified',
-            location: log.LOCATION || 'Not specified',
-            status: log.ACTION || 'No Action'
-          }));
-        
         setPatrolLogs(transformedLogs);
-        setPatrolActivitiesData(activities);
       } else {
-        console.log("No logs found or invalid data format");
         setPatrolLogs([]);
-        setPatrolActivitiesData([]);
       }
       
       setIsLoading(false);
@@ -75,21 +54,29 @@ const PatrolLogs = () => {
     }
   };
 
+  // Function to load patrol activities from logs_patrol table
   const loadPatrolActivities = async () => {
     try {
+      setError(null);
+
       const response = await axios.get(`${BASE_URL}/api/logs_patrol`);
       
       if (response.data && Array.isArray(response.data)) {
         const transformedActivities = response.data.map((activity, index) => ({
-          // Keep original data for the modal
+          // Keep all original data for the modal
           ...activity,
-          // Add/overwrite keys for the table display
-          id: activity.ID || index + 1, // Use original ID for key, but ensure fallback
-          displayId: 1000 + ((activity.ID || index) % 9000), // Deterministic 4-digit ID
+          // Add display properties
+          id: activity.ID || `activity-${index}`,
+          displayId: activity.ID || (1000 + (index % 9000)),
           tanod: activity.USER || 'Unknown',
           time: activity.TIME || 'Not specified',
           location: activity.LOCATION || 'Not specified',
-          action: activity.ACTION || 'No Action'
+          action: activity.ACTION || 'No Action',
+          status: activity.status || 'Pending',
+          resolvedBy: activity.resolved_by || 'N/A',
+          resolvedAt: activity.resolved_at || null,
+          resolutionImage: activity.resolution_image_path || null,
+          incidentId: activity.incident_id || null
         }));
         
         setPatrolActivitiesData(transformedActivities);
@@ -98,6 +85,7 @@ const PatrolLogs = () => {
       }
     } catch (err) {
       console.error('Error loading patrol activities:', err);
+      setError('Failed to load patrol activities.');
       setPatrolActivitiesData([]);
     }
   };
@@ -113,13 +101,16 @@ const PatrolLogs = () => {
   };
 
   useEffect(() => {
-    loadLogs();
-    loadPatrolActivities();
+    const fetchData = async () => {
+      setIsLoading(true);
+      await Promise.all([loadLogs(), loadPatrolActivities()]);
+      setIsLoading(false);
+    };
+    fetchData();
   }, []);
 
   // Enhanced print function
   const handlePrint = () => {
-    // Set the print date attribute before printing
     const container = document.querySelector('.patrol-logs-container');
     if (container) {
       const now = new Date();
@@ -133,7 +124,6 @@ const PatrolLogs = () => {
       container.setAttribute('data-print-date', printDate);
     }
     
-    // Brief delay to ensure attribute is set
     setTimeout(() => {
       window.print();
     }, 100);
@@ -156,7 +146,9 @@ const PatrolLogs = () => {
   const filteredActivities = patrolActivitiesData.filter(activity =>
     activity.tanod.toLowerCase().includes(activitiesSearchTerm.toLowerCase()) ||
     activity.location.toLowerCase().includes(activitiesSearchTerm.toLowerCase()) ||
-    activity.action.toLowerCase().includes(activitiesSearchTerm.toLowerCase())
+    activity.action.toLowerCase().includes(activitiesSearchTerm.toLowerCase()) ||
+    (activity.status && activity.status.toLowerCase().includes(activitiesSearchTerm.toLowerCase())) ||
+    (activity.resolvedBy && activity.resolvedBy.toLowerCase().includes(activitiesSearchTerm.toLowerCase()))
   );
 
   // Pagination logic for patrol activities
@@ -201,14 +193,30 @@ const PatrolLogs = () => {
     if (status === undefined || status === null) {
       return 'status-default';
     }
-    if (status.includes('Available') || status.includes('Completed') || status.includes('Resolved')) {
+    const statusLower = status.toLowerCase();
+    if (statusLower.includes('resolved') || statusLower.includes('completed') || statusLower.includes('available')) {
       return 'status-success';
-    } else if (status.includes('way') || status.includes('Progress')) {
+    } else if (statusLower.includes('progress') || statusLower.includes('way') || statusLower.includes('pending')) {
       return 'status-warning';
-    } else if (status.includes('duty')) {
+    } else if (statusLower.includes('duty')) {
       return 'status-info';
     }
     return 'status-default';
+  };
+
+  const formatDateTime = (dateTimeString) => {
+    if (!dateTimeString || dateTimeString === 'Not specified') return '—';
+    try {
+      return new Date(dateTimeString).toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch {
+      return dateTimeString;
+    }
   };
 
   return (
@@ -262,7 +270,10 @@ const PatrolLogs = () => {
             </div>
             <div className="header-buttons no-print">
               <button 
-                onClick={loadLogs}
+                onClick={() => {
+                  loadLogs();
+                  loadPatrolActivities();
+                }}
                 className="btn btn-secondary"
                 disabled={isLoading}
               >
@@ -298,21 +309,14 @@ const PatrolLogs = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {/* For print, show all filtered logs instead of paginated ones */}
                   {(window.matchMedia && window.matchMedia('print').matches ? filteredLogs : currentLogs).length > 0 ? (
                     (window.matchMedia && window.matchMedia('print').matches ? filteredLogs : currentLogs).map((log) => (
                       <tr key={log.id} onClick={() => handleRowClick(log)}>
                         <td className="font-medium">#{log.displayId}</td>
                         <td>{log.tanod}</td>
-                        <td>
-                          {log.timeIn !== 'Not specified' ? new Date(log.timeIn).toLocaleString() : '—'}
-                        </td>
-                        <td>
-                          {log.timeOut !== 'Not specified' ? new Date(log.timeOut).toLocaleString() : '—'}
-                        </td>
-                        <td title={log.location}>
-                          {log.location}
-                        </td>
+                        <td>{formatDateTime(log.timeIn)}</td>
+                        <td>{formatDateTime(log.timeOut)}</td>
+                        <td title={log.location}>{log.location}</td>
                         <td>
                           <span className={`status-badge ${getStatusClass(log.status)}`}>
                             {log.status}
@@ -398,7 +402,7 @@ const PatrolLogs = () => {
           )}
         </div>
 
-        {/* PATROL ACTIVITIES TABLE */}
+        {/* PATROL ACTIVITIES TABLE - Now from logs_patrol */}
         <div className="table-container activities-table">
           <div className="table-header">
             <div className="header-left">
@@ -428,34 +432,39 @@ const PatrolLogs = () => {
                     <tr>
                       <th>ID</th>
                       <th>Tanod</th>
-                      <th>Time Resolved</th>
+                      <th>Time</th>
                       <th>Location</th>
+                      <th>Action</th>
                       <th>Status</th>
+                      <th>Resolved By</th>
+                      <th>Resolved At</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {/* For print, show all filtered activities instead of paginated ones */}
                     {(window.matchMedia && window.matchMedia('print').matches ? filteredActivities : currentActivities).length > 0 ? (
                       (window.matchMedia && window.matchMedia('print').matches ? filteredActivities : currentActivities).map((activity) => (
                         <tr key={activity.id} onClick={() => handleRowClick(activity)}>
                           <td className="font-medium">#{activity.displayId}</td>
                           <td>{activity.tanod}</td>
-                          <td>
-                            {activity.time !== 'Not specified' ? new Date(activity.time).toLocaleString() : '—'}
-                          </td>
-                          <td title={activity.location}>
-                            {activity.location}
-                          </td>
+                          <td>{formatDateTime(activity.time)}</td>
+                          <td title={activity.location}>{activity.location}</td>
                           <td>
                             <span className={`status-badge ${getStatusClass(activity.action)}`}>
                               {activity.action}
                             </span>
                           </td>
+                          <td>
+                            <span className={`status-badge ${getStatusClass(activity.status)}`}>
+                              {activity.status}
+                            </span>
+                          </td>
+                          <td>{activity.resolvedBy}</td>
+                          <td>{formatDateTime(activity.resolvedAt)}</td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan="5" className="no-data">
+                        <td colSpan="8" className="no-data">
                           {isLoading ? "Loading..." : "No patrol activities found."}
                         </td>
                       </tr>

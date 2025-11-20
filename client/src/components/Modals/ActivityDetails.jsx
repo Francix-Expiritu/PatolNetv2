@@ -1,4 +1,6 @@
 import React from 'react';
+import { BASE_URL } from '../../config'; // Import BASE_URL
+import { User, Clock, MapPin, Info, Image as ImageIcon, CheckCircle, Printer } from 'lucide-react'; // Import icons
 
 function ActivityDetailsModal({ isOpen, onClose, activity }) {
   if (!isOpen || !activity) {
@@ -12,10 +14,22 @@ function ActivityDetailsModal({ isOpen, onClose, activity }) {
     return new Date(dateTimeString).toLocaleString(undefined, options);
   };
 
+  // Helper to get status color
+  const getStatusClass = (status) => {
+    if (!status) return 'status-default';
+    const statusLower = status.toLowerCase();
+    if (statusLower.includes('resolved') || statusLower.includes('completed')) {
+      return 'status-success';
+    } else if (statusLower.includes('progress') || statusLower.includes('pending')) {
+      return 'status-warning';
+    }
+    return 'status-default';
+  };
+
   // Print function
   const handlePrint = () => {
     const printWindow = window.open('', '_blank');
-    const printContent = `
+    let printContent = `
       <!DOCTYPE html>
       <html>
       <head>
@@ -30,6 +44,11 @@ function ActivityDetailsModal({ isOpen, onClose, activity }) {
               margin: 0 auto;
               padding: 20px;
             }
+            img {
+              max-width: 100%;
+              border-radius: 8px;
+              margin-top: 10px;
+            }
             .print-header {
               text-align: center;
               margin-bottom: 30px;
@@ -43,11 +62,11 @@ function ActivityDetailsModal({ isOpen, onClose, activity }) {
               margin: 0;
             }
             .detail-group {
-              margin-bottom: 20px;
-              display: flex;
-              flex-direction: column;
-              gap: 5px;
+              margin-bottom: 15px;
             }
+            .grid-container { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+            .full-width { grid-column: 1 / -1; }
+
             .detail-label {
               font-weight: 600;
               color: #4a5568;
@@ -58,13 +77,6 @@ function ActivityDetailsModal({ isOpen, onClose, activity }) {
             .detail-value {
               font-size: 16px;
               color: #1a202c;
-              padding: 8px 0;
-            }
-            .detail-description {
-              background: #f7fafc;
-              padding: 15px;
-              border-radius: 8px;
-              border-left: 4px solid #4299e1;
               margin: 0;
             }
             .print-footer {
@@ -80,35 +92,67 @@ function ActivityDetailsModal({ isOpen, onClose, activity }) {
       </head>
       <body>
         <div class="print-header">
-          <h1 class="print-title">Activity Details</h1>
+          <h1 class="print-title">Activity Details for Log ID #${activity.displayId}</h1>
         </div>
+        <div class="grid-container">
+          <div class="detail-group">
+            <div class="detail-label">Activity</div>
+            <div class="detail-value">${activity.action || 'No action specified'}</div>
+          </div>
+          <div class="detail-group">
+            <div class="detail-label">User</div>
+            <div class="detail-value">${activity.tanod || 'N/A'}</div>
+          </div>
+          <div class="detail-group">
+            <div class="detail-label">Time</div>
+            <div class="detail-value">${formatDateTime(activity.time)}</div>
+          </div>
+          <div class="detail-group">
+            <div class="detail-label">Location</div>
+            <div class="detail-value">${activity.location || 'Not specified'}</div>
+          </div>
+          <div class="detail-group">
+            <div class="detail-label">Status</div>
+            <div class="detail-value">${activity.status || 'Pending'}</div>
+          </div>
+    `;
+
+    if (activity.resolvedBy) {
+      printContent += `
         <div class="detail-group">
-          <span class="detail-label">Activity:</span>
-          <span class="detail-value">${activity.ACTION || 'No action specified'}</span>
+          <div class="detail-label">Resolved By</div>
+          <div class="detail-value">${activity.resolvedBy}</div>
         </div>
+      `;
+    }
+    if (activity.resolvedAt) {
+      printContent += `
         <div class="detail-group">
-          <span class="detail-label">User:</span>
-          <span class="detail-value">${activity.USER || 'N/A'}</span>
+          <div class="detail-label">Resolved At</div>
+          <div class="detail-value">${formatDateTime(activity.resolvedAt)}</div>
         </div>
-        <div class="detail-group">
-          <span class="detail-label">Time:</span>
-          <span class="detail-value">${formatDateTime(activity.TIME)}</span>
+      `;
+    }
+
+    printContent += `</div>`; // Close grid-container
+
+    if (resolutionImageUrl) {
+      printContent += `
+        <div class="detail-group full-width" style="margin-top: 20px;">
+          <div class="detail-label">Resolution Proof</div>
+          <img src="${resolutionImageUrl}" alt="Resolution Proof" />
         </div>
-        <div class="detail-group">
-          <span class="detail-label">Location:</span>
-          <span class="detail-value">${activity.LOCATION || 'Not specified'}</span>
-        </div>
-        <div class="detail-group">
-          <span class="detail-label">Details:</span>
-          <p class="detail-description">${activity.DETAILS || 'No additional details provided.'}</p>
-        </div>
+      `;
+    }
+
+    printContent += `
         <div class="print-footer">
           <p>Generated on ${new Date().toLocaleDateString()}</p>
         </div>
       </body>
       </html>
     `;
-    
+
     printWindow.document.write(printContent);
     printWindow.document.close();
     printWindow.focus();
@@ -116,55 +160,120 @@ function ActivityDetailsModal({ isOpen, onClose, activity }) {
     printWindow.close();
   };
 
+  const resolutionImageUrl = activity.resolutionImage ? `${BASE_URL}/uploads/resolutions/${activity.resolutionImage}` : null;
+
   return (
     <div style={modalOverlayStyles} onClick={onClose}>
       <div style={modalContentStyles} onClick={(e) => e.stopPropagation()}>
         <div style={modalHeaderStyles}>
-          <h2 style={modalTitleStyles}>Activity Details</h2>
+          <div style={modalHeaderContentStyles}>
+            <div style={modalIconWrapperStyles}>
+              <Info size={24} />
+            </div>
+            <div>
+              <h2 style={modalTitleStyles}>Activity Details</h2>
+              <p style={modalSubtitleStyles}>Log ID: #{activity.displayId}</p>
+            </div>
+          </div>
           <button onClick={onClose} style={closeBtnStyles}>&times;</button>
         </div>
         
         <div style={modalBodyStyles}>
-          <div style={detailGroupStyles}>
-            <span style={detailLabelStyles}>Activity:</span>
-            <span style={detailValueStyles}>{activity.ACTION || 'No action specified'}</span>
+          <div style={detailsGridStyles}>
+            {/* Activity Action */}
+            <div style={detailItemStyles}>
+              <Info size={16} style={detailIconStyles} />
+              <div>
+                <span style={detailLabelStyles}>Activity</span>
+                <span style={detailValueStyles}>{activity.action || 'No action specified'}</span>
+              </div>
+            </div>
+
+            {/* User */}
+            <div style={detailItemStyles}>
+              <User size={16} style={detailIconStyles} />
+              <div>
+                <span style={detailLabelStyles}>User</span>
+                <span style={detailValueStyles}>{activity.tanod || 'N/A'}</span>
+              </div>
+            </div>
+
+            {/* Time */}
+            <div style={detailItemStyles}>
+              <Clock size={16} style={detailIconStyles} />
+              <div>
+                <span style={detailLabelStyles}>Time</span>
+                <span style={detailValueStyles}>{formatDateTime(activity.time)}</span>
+              </div>
+            </div>
+
+            {/* Location */}
+            <div style={detailItemStyles}>
+              <MapPin size={16} style={detailIconStyles} />
+              <div>
+                <span style={detailLabelStyles}>Location</span>
+                <span style={detailValueStyles}>{activity.location || 'Not specified'}</span>
+              </div>
+            </div>
+
+            {/* Status */}
+            <div style={detailItemStyles}>
+              <CheckCircle size={16} style={detailIconStyles} />
+              <div>
+                <span style={detailLabelStyles}>Status</span>
+                <span style={{...detailValueStyles, ...statusBadgeStyles}} className={getStatusClass(activity.status)}>
+                  {activity.status || 'Pending'}
+                </span>
+              </div>
+            </div>
+
+            {/* Resolved By */}
+            {activity.resolvedBy && (
+              <div style={detailItemStyles}>
+                <User size={16} style={detailIconStyles} />
+                <div>
+                  <span style={detailLabelStyles}>Resolved By</span>
+                  <span style={detailValueStyles}>{activity.resolvedBy}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Resolved At */}
+            {activity.resolvedAt && (
+              <div style={detailItemStyles}>
+                <Clock size={16} style={detailIconStyles} />
+                <div>
+                  <span style={detailLabelStyles}>Resolved At</span>
+                  <span style={detailValueStyles}>{formatDateTime(activity.resolvedAt)}</span>
+                </div>
+              </div>
+            )}
           </div>
-          
-          <div style={detailGroupStyles}>
-            <span style={detailLabelStyles}>User:</span>
-            <span style={detailValueStyles}>{activity.USER || 'N/A'}</span>
-          </div>
-          
-          <div style={detailGroupStyles}>
-            <span style={detailLabelStyles}>Time:</span>
-            <span style={detailValueStyles}>{formatDateTime(activity.TIME)}</span>
-          </div>
-          
-          <div style={detailGroupStyles}>
-            <span style={detailLabelStyles}>Location:</span>
-            <span style={detailValueStyles}>{activity.LOCATION || 'Not specified'}</span>
-          </div>
-          
-          <div style={detailGroupStyles}>
-            <span style={detailLabelStyles}>Details:</span>
-            <p style={detailDescriptionStyles}>
-              {activity.DETAILS || 'No additional details provided.'}
-            </p>
-          </div>
+
+          {/* Resolution Image */}
+          {resolutionImageUrl && (
+            <div style={imageSectionStyles}>
+              <span style={detailLabelStyles}>Resolution Proof</span>
+              <div style={imageContainerStyles}>
+                <img src={resolutionImageUrl} alt="Resolution Proof" style={imageStyles} />
+              </div>
+            </div>
+          )}
         </div>
         
         <div style={modalFooterStyles}>
           <button onClick={handlePrint} style={printBtnStyles}>
-            <svg style={iconStyles} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polyline points="6,9 6,2 18,2 18,9"></polyline>
-              <path d="M6,18H4a2,2 0 0,1-2-2v-5a2,2 0 0,1,2-2H20a2,2 0 0,1,2,2v5a2,2 0 0,1-2,2H18"></path>
-              <polyline points="6,14 18,14 18,22 6,22 6,14"></polyline>
-            </svg>
+            <Printer size={16} />
             Print
           </button>
           <button onClick={onClose} style={modalCloseBtnStyles}>Close</button>
         </div>
       </div>
+      <style>{`
+        .status-success { background-color: #dcfce7; color: #166534; border-color: #86efac; }
+        .status-warning { background-color: #fef9c3; color: #854d0e; border-color: #fde047; }
+        .status-default { background-color: #f3f4f6; color: #374151; border-color: #d1d5db; }
+      `}</style>
     </div>
   );
 }
@@ -176,27 +285,27 @@ const modalOverlayStyles = {
   left: 0,
   right: 0,
   bottom: 0,
-  backgroundColor: 'rgba(0, 0, 0, 0.6)',
-  backdropFilter: 'blur(4px)',
+  backgroundColor: 'rgba(17, 24, 39, 0.6)',
+  backdropFilter: 'blur(8px)',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
   zIndex: 1000,
   padding: '20px',
-  animation: 'fadeIn 0.2s ease-out'
+  animation: 'fadeIn 0.3s ease-out'
 };
 
 const modalContentStyles = {
   backgroundColor: '#ffffff',
   borderRadius: '16px',
-  boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.8)',
+  boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
   maxWidth: '600px',
   width: '100%',
   maxHeight: '90vh',
   overflow: 'hidden',
   display: 'flex',
   flexDirection: 'column',
-  animation: 'slideIn 0.3s ease-out'
+  animation: 'slideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
 };
 
 const modalHeaderStyles = {
@@ -205,22 +314,43 @@ const modalHeaderStyles = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
+};
+
+const modalHeaderContentStyles = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '16px',
+};
+
+const modalIconWrapperStyles = {
+  width: '48px',
+  height: '48px',
+  borderRadius: '12px',
   background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-  color: 'white'
+  color: 'white',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
 };
 
 const modalTitleStyles = {
   margin: 0,
   fontSize: '20px',
   fontWeight: '700',
-  color: 'white'
+  color: '#111827'
+};
+
+const modalSubtitleStyles = {
+  margin: '4px 0 0 0',
+  fontSize: '14px',
+  color: '#6b7280',
 };
 
 const closeBtnStyles = {
-  background: 'rgba(255, 255, 255, 0.2)',
+  background: '#f3f4f6',
   border: 'none',
   borderRadius: '8px',
-  color: 'white',
+  color: '#6b7280',
   fontSize: '24px',
   width: '36px',
   height: '36px',
@@ -230,7 +360,7 @@ const closeBtnStyles = {
   justifyContent: 'center',
   transition: 'all 0.2s ease',
   ':hover': {
-    background: 'rgba(255, 255, 255, 0.3)',
+    background: '#e5e7eb',
     transform: 'scale(1.05)'
   }
 };
@@ -238,14 +368,26 @@ const closeBtnStyles = {
 const modalBodyStyles = {
   padding: '28px',
   overflowY: 'auto',
-  flex: 1
+  flex: 1,
+  background: '#f9fafb',
 };
 
-const detailGroupStyles = {
-  marginBottom: '24px',
+const detailsGridStyles = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+  gap: '24px',
+};
+
+const detailItemStyles = {
   display: 'flex',
-  flexDirection: 'column',
-  gap: '8px'
+  alignItems: 'flex-start',
+  gap: '12px',
+};
+
+const detailIconStyles = {
+  color: '#667eea',
+  marginTop: '4px',
+  flexShrink: 0,
 };
 
 const detailLabelStyles = {
@@ -253,29 +395,44 @@ const detailLabelStyles = {
   fontWeight: '600',
   color: '#6b7280',
   textTransform: 'uppercase',
-  letterSpacing: '0.8px'
+  letterSpacing: '0.8px',
+  marginBottom: '4px',
 };
 
 const detailValueStyles = {
   fontSize: '16px',
   color: '#1f2937',
   fontWeight: '500',
-  padding: '12px 16px',
-  backgroundColor: '#f9fafb',
-  borderRadius: '8px',
-  border: '1px solid #e5e7eb'
 };
 
-const detailDescriptionStyles = {
-  fontSize: '15px',
-  color: '#374151',
-  lineHeight: '1.6',
-  margin: 0,
-  padding: '16px',
-  backgroundColor: '#f0f9ff',
-  borderRadius: '10px',
-  border: '1px solid #e0f2fe',
-  borderLeft: '4px solid #0ea5e9'
+const statusBadgeStyles = {
+  padding: '4px 12px',
+  borderRadius: '20px',
+  fontSize: '12px',
+  fontWeight: '600',
+  display: 'inline-block',
+  border: '1px solid',
+};
+
+const imageSectionStyles = {
+  marginTop: '24px',
+  paddingTop: '24px',
+  borderTop: '1px solid #e5e7eb',
+};
+
+const imageContainerStyles = {
+  marginTop: '8px',
+  width: '100%',
+  maxHeight: '300px',
+  borderRadius: '12px',
+  overflow: 'hidden',
+  border: '1px solid #e5e7eb',
+};
+
+const imageStyles = {
+  width: '100%',
+  height: '100%',
+  objectFit: 'cover',
 };
 
 const modalFooterStyles = {
@@ -284,11 +441,11 @@ const modalFooterStyles = {
   display: 'flex',
   gap: '12px',
   justifyContent: 'flex-end',
-  backgroundColor: '#fafafa'
+  backgroundColor: '#ffffff'
 };
 
 const printBtnStyles = {
-  backgroundColor: '#10b981',
+  backgroundColor: '#667eea',
   color: 'white',
   border: 'none',
   borderRadius: '10px',
@@ -299,12 +456,12 @@ const printBtnStyles = {
   display: 'flex',
   alignItems: 'center',
   gap: '8px',
-  transition: 'all 0.2s ease',
-  boxShadow: '0 2px 4px rgba(16, 185, 129, 0.2)',
+  transition: 'all 0.3s ease',
+  boxShadow: '0 4px 12px rgba(102, 126, 234, 0.2)',
   ':hover': {
-    backgroundColor: '#059669',
-    transform: 'translateY(-1px)',
-    boxShadow: '0 4px 8px rgba(16, 185, 129, 0.3)'
+    backgroundColor: '#5a67d8',
+    transform: 'translateY(-2px)',
+    boxShadow: '0 6px 16px rgba(102, 126, 234, 0.3)'
   }
 };
 
@@ -317,16 +474,11 @@ const modalCloseBtnStyles = {
   fontSize: '14px',
   fontWeight: '600',
   cursor: 'pointer',
-  transition: 'all 0.2s ease',
+  transition: 'all 0.3s ease',
   ':hover': {
     backgroundColor: '#4b5563',
-    transform: 'translateY(-1px)'
+    transform: 'translateY(-2px)'
   }
-};
-
-const iconStyles = {
-  width: '16px',
-  height: '16px'
 };
 
 // Add keyframe animations via a style tag

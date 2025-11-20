@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
+import { BASE_URL } from '../config';
 
 const VerifyEmail = () => {
   const [message, setMessage] = useState('Verifying your email...');

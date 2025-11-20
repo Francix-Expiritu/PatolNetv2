@@ -1,0 +1,168 @@
+.attendance-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    backdrop-filter: blur(5px);
+  }
+  
+  .attendance-modal-content {
+    background-color: white;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    width: 90%;
+    max-width: 700px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  
+  .attendance-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 24px;
+    border-bottom: 1px solid #e5e7eb;
+    background-color: #f9fafb;
+  }
+  
+  .attendance-modal-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #111827;
+    margin: 0;
+  }
+  
+  .attendance-modal-close-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 50%;
+    color: #6b7280;
+    transition: background-color 0.2s, color 0.2s;
+  }
+  
+  .attendance-modal-close-btn:hover {
+    background-color: #e5e7eb;
+    color: #111827;
+  }
+  
+  .attendance-modal-body {
+    padding: 24px;
+    overflow-y: auto;
+    flex-grow: 1;
+  }
+  
+  .loading-state, .error-state, .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 40px 20px;
+    color: #6b7280;
+  }
+  
+  .loading-state .spinner {
+    animation: spin 1s linear infinite;
+  }
+  
+  .error-state svg {
+    color: #ef4444;
+    margin-bottom: 12px;
+  }
+  
+  .logs-table-wrapper {
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  
+  .logs-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+  }
+  
+  .logs-table th, .logs-table td {
+    padding: 12px 16px;
+    text-align: left;
+    border-bottom: 1px solid #e5e7eb;
+  }
+  
+  .logs-table th {
+    background-color: #f9fafb;
+    font-weight: 600;
+    color: #374151;
+  }
+  
+  .logs-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+  
+  .logs-table tbody tr:hover {
+    background-color: #f3f4f6;
+  }
+  
+  .attendance-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 16px 24px;
+    border-top: 1px solid #e5e7eb;
+    background-color: #f9fafb;
+  }
+  
+  .btn-cancel, .btn-send-proof {
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .btn-cancel {
+    background-color: white;
+    color: #374151;
+    border: 1px solid #d1d5db;
+  }
+  
+  .btn-cancel:hover {
+    background-color: #f3f4f6;
+  }
+  
+  .btn-send-proof {
+    background-color: #2563eb;
+    color: white;
+    border: none;
+  }
+  
+  .btn-send-proof:hover:not(:disabled) {
+    background-color: #1d4ed8;
+  }
+  
+  .btn-send-proof:disabled {
+    background-color: #9ca3af;
+    cursor: not-allowed;
+  }
+  
+  .spinner-sm {
+    animation: spin 1s linear infinite;
+  }
+  
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  

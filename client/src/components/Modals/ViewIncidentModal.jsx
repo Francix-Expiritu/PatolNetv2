@@ -479,6 +479,27 @@ function ViewIncidentModal({
               </div>
             )}
 
+            {/* Resolution Image Proof */}
+            {selectedIncident.resolution_image_path && (
+              <div className="modal-info-row single-column">
+                <div className="modal-field">
+                  <label>Resolution Proof</label>
+                  <div className="modal-image-container">
+                    <img
+                      src={`${BASE_URL}/uploads/resolutions/${selectedIncident.resolution_image_path}`}
+                      alt="Resolution proof"
+                      className="modal-image"
+                      onClick={() => handleImageClick(`${BASE_URL}/uploads/resolutions/${selectedIncident.resolution_image_path}`)}
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                        e.target.parentNode.innerHTML = '<div class="image-placeholder">Resolution photo not available</div>';
+                      }}
+                      title="Click to view full size"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
             {/* Additional Notes */}
             {selectedIncident.notes && (
               <div className="modal-info-row single-column">

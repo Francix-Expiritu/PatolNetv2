@@ -10,10 +10,12 @@ const nodemailer = require("nodemailer");
 
 const app = express();
 app.use(cors());
+app.set('trust proxy', true); // Enable trust for req.ip
 app.use(express.json());
 
 // Serve uploaded images statically
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use("/uploads/resolutions", express.static(path.join(__dirname, "uploads/resolutions")));
 
 // Create uploads folder if it doesn't exist
 const uploadDir = path.join(__dirname, "uploads");
@@ -57,6 +59,45 @@ db.connect((err) => {
   }
 });
 
+// --- Firewall Middleware ---
+
+let blockedIpSet = new Set();
+
+async function refreshBlockedIps() {
+  try {
+    const [results] = await db.promise().query("SELECT ip_address FROM firewall_blocked_ips");
+    blockedIpSet = new Set(results.map(row => row.ip_address));
+    console.log(`✅ Firewall blocklist refreshed. ${blockedIpSet.size} IPs are blocked.`);
+  } catch (err) {
+    console.error("❌ Failed to refresh firewall blocklist:", err);
+  }
+}
+
+// Middleware to check for blocked IPs on every request
+const firewallMiddleware = (req, res, next) => {
+  const clientIp = req.ip;
+
+  if (blockedIpSet.has(clientIp)) {
+    // Log the blocked attempt
+    logAccessAttempt(clientIp, 'unknown', `${req.method} ${req.originalUrl}`, 'Blocked');
+    
+    // Send a 403 Forbidden response
+    return res.status(403).json({
+      error: "You have been blocked by an administrator. Please contact support if you believe this is a mistake."
+    });
+  }
+
+  next(); // IP is not blocked, proceed to the next middleware/route
+};
+
+// Initial load of blocked IPs and set up periodic refresh
+refreshBlockedIps();
+setInterval(refreshBlockedIps, 5 * 60 * 1000); // Refresh every 5 minutes
+
+// Apply the firewall middleware to all routes
+app.use(firewallMiddleware);
+
+
 // Nodemailer transporter
 const transporter = nodemailer.createTransport({
   service: "gmail",
@@ -91,10 +132,24 @@ function generateUniqueIncidentId(callback) {
   });
 }
 
+// Helper function to log access attempts
+function logAccessAttempt(ip, user, action, status) {
+  const sql = `
+    INSERT INTO firewall_access_logs (ip_address, user, action, status, timestamp)
+    VALUES (?, ?, ?, ?, ?)
+  `;
+  db.query(sql, [ip, user, action, status, getGMT8Time()], (err) => {
+    if (err) {
+      console.error("❌ SQL error logging access attempt:", err);
+    }
+  });
+}
+
 // Updated Login route with client-based role restrictions
 app.post("/login", (req, res) => {
   console.log("Login attempt received.");
   const { username, password, clientType } = req.body;
+  const ipAddress = req.ip || req.connection.remoteAddress;
 
   if (!username || !password) {
     console.log("Missing username or password.");
@@ -119,11 +174,12 @@ app.post("/login", (req, res) => {
 
     if (results.length === 0) {
       console.log("Invalid username or password.");
+      logAccessAttempt(ipAddress, username, 'POST /login', 'Failed');
       return res.status(401).json({ error: "Invalid username or password" });
     }
 
     const user = results[0];
-            console.log(`User found: ${user.USER}, Role: '${user.ROLE}', Status: '${user.STATUS}'`); // Added quotes for clarity
+    console.log(`User found: ${user.USER}, Role: '${user.ROLE}', Status: '${user.STATUS}'`); // Added quotes for clarity
     console.log(`User role from DB (original): '${user.ROLE}'`); // New log
     console.log(`User role from DB (lowercase): '${user.ROLE.toLowerCase()}'`); // New log // Added quotes for clarity
     console.log(`User role from DB (original): '${user.ROLE}'`); // New log
@@ -133,12 +189,14 @@ app.post("/login", (req, res) => {
     if (user.STATUS !== "Verified") {
       if (user.STATUS === "Pending") {
         console.log("Account pending verification.");
+        logAccessAttempt(ipAddress, username, 'POST /login', 'Failed');
         return res.status(403).json({ 
           error: "Account status is Pending. Please verify your account." 
         });
       } else {
         console.log(`Account status "${user.STATUS}" does not allow login.`);
-        return res.status(403).json({ 
+        logAccessAttempt(ipAddress, username, 'POST /login', 'Failed');
+        return res.status(403).json({
           error: `Account status "${user.STATUS}" does not allow login.` 
         });
       }
@@ -163,20 +221,23 @@ app.post("/login", (req, res) => {
     // Check if user.ROLE is defined and not empty
     if (!user.ROLE || user.ROLE.trim() === '') {
       console.log(`Access denied: User role is undefined or empty for user ${user.USER}.`);
+      logAccessAttempt(ipAddress, username, 'POST /login', 'Blocked');
       return res.status(403).json({
         error: "Access denied. Your account has no assigned role. Please contact an administrator."
       });
     }
 
     // Check if user role is allowed for this client (case-insensitive)
-    if (!allowedRoles.includes(user.ROLE.toLowerCase())) { // Convert user.ROLE to lowercase
+    if (!allowedRoles.includes(user.ROLE.toLowerCase())) {
       console.log(`Access denied for role ${user.ROLE} on ${clientName}.`);
+      logAccessAttempt(ipAddress, username, 'POST /login', 'Blocked');
       return res.status(403).json({
         error: `Access denied. Only ${allowedRoles.join(' and ')} users are allowed to access the ${clientName}.`
       });
     }
 
     console.log("Login successful.");
+    logAccessAttempt(ipAddress, username, 'POST /login', 'Success');
     // Return success with user data (excluding password for security)
     return res.json({ 
       success: true, 
@@ -923,7 +984,7 @@ app.get("/api/incidents/:id", (req, res) => {
   
   const sql = `
     SELECT id, incident_type as type, location, status, datetime as created_at,
-           image, reported_by, latitude, longitude, assigned, resolved_by, resolved_at
+           image, reported_by, latitude, longitude, assigned, resolved_by, resolved_at, resolution_image_path
     FROM incident_report 
     WHERE id = ?
   `;
@@ -1841,6 +1902,7 @@ app.post("/api/time-record", async (req, res) => {
   }
   // Check if user has a valid schedule for TIME-IN
   if (action === 'TIME-IN') {
+    
     try {
       const schedule = await new Promise((resolve, reject) => {
         const sql = "SELECT DAY, START_TIME, END_TIME, MONTH FROM schedules WHERE USER = ?";
@@ -2755,7 +2817,72 @@ app.post("/api/patrol-logs/resolve", uploadResolution.single("resolutionImage"),
     });
   });
 });
+// --- Firewall Endpoints ---
 
+// GET all blocked IPs
+app.get("/api/firewall/blocked-ips", (req, res) => {
+  const sql = "SELECT * FROM firewall_blocked_ips ORDER BY created_at DESC";
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error("❌ SQL error fetching blocked IPs:", err);
+      return res.status(500).json({ error: "Failed to fetch blocked IPs" });
+    }
+    res.json(results);
+  });
+});
+
+// GET recent access logs
+app.get("/api/firewall/access-logs", (req, res) => {
+  // Fetch the last 100 access logs for performance
+  const sql = "SELECT * FROM firewall_access_logs ORDER BY timestamp DESC LIMIT 100";
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error("❌ SQL error fetching access logs:", err);
+      return res.status(500).json({ error: "Failed to fetch access logs" });
+    }
+    res.json(results);
+  });
+});
+
+// POST to block a new IP
+app.post("/api/firewall/block", (req, res) => {
+  const { ip_address, reason } = req.body;
+
+  if (!ip_address) {
+    return res.status(400).json({ success: false, message: "IP address is required" });
+  }
+
+  const sql = "INSERT INTO firewall_blocked_ips (ip_address, reason) VALUES (?, ?)";
+  db.query(sql, [ip_address, reason], (err, result) => {
+    if (err) {
+      if (err.code === "ER_DUP_ENTRY") {
+        return res.status(409).json({ success: false, message: "IP address is already blocked" });
+      }
+      console.error("❌ SQL error blocking IP:", err);
+      return res.status(500).json({ success: false, message: "Database error while blocking IP" });
+    }
+    refreshBlockedIps(); // Immediately refresh the blocklist in memory
+    res.status(201).json({ success: true, message: "IP address blocked successfully", id: result.insertId });
+  });
+});
+
+// DELETE to unblock an IP
+app.delete("/api/firewall/unblock/:id", (req, res) => {
+  const { id } = req.params;
+
+  const sql = "DELETE FROM firewall_blocked_ips WHERE id = ?";
+  db.query(sql, [id], (err, result) => {
+    if (err) {
+      console.error("❌ SQL error unblocking IP:", err);
+      return res.status(500).json({ success: false, message: "Database error" });
+    }
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ success: false, message: "Blocked IP not found" });
+    }
+    refreshBlockedIps(); // Immediately refresh the blocklist in memory
+    res.json({ success: true, message: "IP address unblocked successfully" });
+  });
+});
 
 // Start server
 const os = require("os");

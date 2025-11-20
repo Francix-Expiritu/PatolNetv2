@@ -21,6 +21,8 @@ import ContactUs from "./components/ContactUs.jsx";
 import ResidentLandingPage from "./components/ResidentLandingPage.jsx";
 import TouristSpots from "./components/TouristSpots.jsx";
 import './i18n'; 
+import Attendance from "./components/Attendance.jsx";
+import Firewall from './components/Firewall';
 
 // Components for Activities & Announcements
 import Activities from "./components/Activities.jsx";
@@ -290,6 +292,7 @@ function AppContent() {
           <Route path="/admin-announcements" element={isAdmin() ? <AdminAnnouncements /> : <Navigate to="/" replace />} />
           <Route path="/messages" element={isAdmin() ? <Messages /> : <Navigate to="/" replace />} />
           <Route path="/tourist-spots" element={isAdmin() ? <TouristSpots /> : <Navigate to="/" replace />} />
+          <Route path="/firewall" element={<Firewall />} />
 
           {/* Shared routes (Tanod + Admin access) */}
           <Route path="/incident-report" element={isTanodOrAdmin() ? <IncidentReport /> : <Navigate to="/" replace />} />
@@ -297,6 +300,7 @@ function AppContent() {
           <Route path="/patrol-logs" element={isTanodOrAdmin() ? <PatrolLogs /> : <Navigate to="/" replace />} />
           <Route path="/accounts" element={isTanodOrAdmin() ? <Accounts /> : <Navigate to="/" replace />} />
           <Route path="/gis-mapping" element={isTanodOrAdmin() ? <GISMapping /> : <Navigate to="/" replace />} />
+          <Route path="/attendance" element={isTanodOrAdmin() ? <Attendance /> : <Navigate to="/" replace />} />
 
           {/* Catch-all route for unmatched paths */}
           <Route path="*" element={<Navigate to="/" replace />} />
