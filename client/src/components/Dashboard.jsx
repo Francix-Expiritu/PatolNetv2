@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom'; // Import useNavigate
 import MessageModal from './MessageModal'; // Import the new modal
 
 function Dashboard() {
@@ -10,6 +11,7 @@ function Dashboard() {
   const [accountsCount, setAccountsCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [showMessageModal, setShowMessageModal] = useState(false);
+  const navigate = useNavigate(); // Initialize useNavigate
 
   useEffect(() => {
     const fetchCounts = async () => {
@@ -68,7 +70,12 @@ function Dashboard() {
   }, []);
 
   const handleCardClick = (cardTitle) => {
-    if (cardTitle === 'Messages') setShowMessageModal(true);
+    const card = dashboardCards.find(c => c.title === cardTitle);
+    if (card && card.path) {
+      navigate(card.path);
+    } else if (cardTitle === 'Messages') {
+      setShowMessageModal(true);
+    }
   };
 
   const dashboardCards = [
@@ -77,60 +84,54 @@ function Dashboard() {
       title: 'Incident Reports',
       icon: '🚨',
       count: incidentCount,
-
       description: 'Monitor and manage all reported incidents in real-time',
-     
-      priority: 'high'
+      priority: 'high',
+      path: '/incident-report'
     },
     {
       id: 2,
       title: 'Scheduling & Assessment',
       icon: '🗓️',
       count: schedulingCount,
-  
       description: 'Coordinate patrol schedules and security assessments',
-      
-      priority: 'medium'
+      priority: 'medium',
+      path: '/scheduling'
     },
     {
       id: 3,
       title: 'GIS Mapping',
       icon: '🗺️',
       count: gisMappingCount,
-
       description: 'Visualize incidents and patrol routes on interactive maps',
-     
-      priority: 'medium'
+      priority: 'medium',
+      path: '/gis-mapping'
     },
     {
       id: 4,
       title: 'Patrol Logs',
       icon: '📝',
       count: patrolLogsCount,
-
       description: 'Review and analyze daily patrol activities and reports',
-   
-      priority: 'medium'
+      priority: 'medium',
+      path: '/patrol-logs'
     },
     {
       id: 5,
       title: 'Activities',
       icon: '⭐',
       count: activitiesCount,
- 
       description: 'Manage community activities and public announcements',
-    
-      priority: 'low'
+      priority: 'low',
+      path: '/admin-activities'
     },
     {
       id: 6,
       title: 'Accounts Management',
       icon: '👥',
       count: accountsCount,
-  
       description: 'Oversee all user accounts, roles, and permissions',
-  
-      priority: 'high'
+      priority: 'high',
+      path: '/accounts'
     },
     {
       id: 7,
