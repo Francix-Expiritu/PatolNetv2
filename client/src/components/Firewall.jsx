@@ -205,7 +205,7 @@ const Firewall = () => {
                 <thead>
                   <tr>
                     <th>IP Address</th>
-                    <th>MAC Address</th>
+                    <th>Mac Address</th>
                     <th>User</th>
                     <th>Action</th>
                     <th>Status</th>
@@ -217,7 +217,7 @@ const Firewall = () => {
                     accessLogs.map(log => (
                       <tr key={log.id}>
                         <td className="ip-address-cell">{log.ip_address}</td>
-                        <td className="mac-address-cell">{log.mac_address || 'N/A'}</td>
+                        <td className="device-id-cell">{log.device_id || 'N/A'}</td>
                         <td>{log.user}</td>
                         <td>{log.action}</td>
                         <td><span className={`status-badge ${getStatusClass(log.status)}`}>{log.status}</span></td>

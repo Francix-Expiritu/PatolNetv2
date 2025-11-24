@@ -5,6 +5,7 @@ import Announcements from "./components/Announcements";
 import { Map, Smartphone, Shield, Users, School, Zap, Waves, Church, Store, ArrowUp, Phone, MessageCircle, ChevronDown, X, AlertTriangle, PhoneCall } from 'lucide-react';
 import FeatureModal from "./FeatureModal";
 import Footer from "./components/Footer";
+import AppInstructions from "./components/AppInstructions";
 
 const styles = {
   pageWrapper: {
@@ -1690,6 +1691,11 @@ function Landingpage({ onLoginClick }) {
       <ImageGalleryCarousel galleryData={galleryData} />
 
       {/* Activities Section with Tabs */}
+      <section id="download-section" style={{ backgroundColor: '#f9fafb', paddingTop: '1px', paddingBottom: '1px' }}>
+        {/* The AppInstructions component is self-contained with its own styling and layout */}
+        <AppInstructions />
+      </section>
+
       <section style={styles.activitiesSection} id="activities-section">
         <div style={styles.container}>
           <div style={styles.sectionHeader}>

@@ -79,7 +79,7 @@ const firewallMiddleware = (req, res, next) => {
 
   if (blockedIpSet.has(clientIp)) {
     // Log the blocked attempt
-    logAccessAttempt(clientIp, 'unknown', `${req.method} ${req.originalUrl}`, 'Blocked');
+    logAccessAttempt(clientIp, 'unknown', `${req.method} ${req.originalUrl}`, 'Blocked', null);
     
     // Send a 403 Forbidden response
     return res.status(403).json({
@@ -133,12 +133,12 @@ function generateUniqueIncidentId(callback) {
 }
 
 // Helper function to log access attempts
-function logAccessAttempt(ip, user, action, status) {
+function logAccessAttempt(ip, user, action, status, deviceId = null) {
   const sql = `
-    INSERT INTO firewall_access_logs (ip_address, user, action, status, timestamp)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO firewall_access_logs (ip_address, user, action, status, timestamp, device_id)
+    VALUES (?, ?, ?, ?, ?, ?)
   `;
-  db.query(sql, [ip, user, action, status, getGMT8Time()], (err) => {
+  db.query(sql, [ip, user, action, status, getGMT8Time(), deviceId], (err) => {
     if (err) {
       console.error("❌ SQL error logging access attempt:", err);
     }
@@ -148,7 +148,7 @@ function logAccessAttempt(ip, user, action, status) {
 // Updated Login route with client-based role restrictions
 app.post("/login", (req, res) => {
   console.log("Login attempt received.");
-  const { username, password, clientType } = req.body;
+  const { username, password, clientType, deviceId } = req.body;
   const ipAddress = req.ip || req.connection.remoteAddress;
 
   if (!username || !password) {
@@ -174,7 +174,7 @@ app.post("/login", (req, res) => {
 
     if (results.length === 0) {
       console.log("Invalid username or password.");
-      logAccessAttempt(ipAddress, username, 'POST /login', 'Failed');
+      logAccessAttempt(ipAddress, username, 'POST /login', 'Failed', deviceId);
       return res.status(401).json({ error: "Invalid username or password" });
     }
 
@@ -221,7 +221,7 @@ app.post("/login", (req, res) => {
     // Check if user.ROLE is defined and not empty
     if (!user.ROLE || user.ROLE.trim() === '') {
       console.log(`Access denied: User role is undefined or empty for user ${user.USER}.`);
-      logAccessAttempt(ipAddress, username, 'POST /login', 'Blocked');
+      logAccessAttempt(ipAddress, username, 'POST /login', 'Blocked', deviceId);
       return res.status(403).json({
         error: "Access denied. Your account has no assigned role. Please contact an administrator."
       });
@@ -229,15 +229,15 @@ app.post("/login", (req, res) => {
 
     // Check if user role is allowed for this client (case-insensitive)
     if (!allowedRoles.includes(user.ROLE.toLowerCase())) {
-      console.log(`Access denied for role ${user.ROLE} on ${clientName}.`);
-      logAccessAttempt(ipAddress, username, 'POST /login', 'Blocked');
+      console.log(`Access denied for role ${user.ROLE} on ${clientName}.`); // Added quotes for clarity
+      logAccessAttempt(ipAddress, username, 'POST /login', 'Blocked', deviceId);
       return res.status(403).json({
         error: `Access denied. Only ${allowedRoles.join(' and ')} users are allowed to access the ${clientName}.`
       });
     }
 
     console.log("Login successful.");
-    logAccessAttempt(ipAddress, username, 'POST /login', 'Success');
+    logAccessAttempt(ipAddress, username, 'POST /login', 'Success', deviceId);
     // Return success with user data (excluding password for security)
     return res.json({ 
       success: true, 
